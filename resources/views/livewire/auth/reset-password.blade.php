@@ -68,50 +68,29 @@ new #[Layout('components.layouts.auth')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-6">
-    <x-auth-header title="Reset password" description="Please enter your new password below" />
+<div class="flex flex-col gap-5">
+    <x-auth-header title="Criar nova senha" description="Escolha uma senha nova para a sua conta." />
 
-    <!-- Session Status -->
     <x-auth-session-status class="text-center" :status="session('status')" />
 
-    <form wire:submit="resetPassword" class="flex flex-col gap-6">
-        <!-- Email Address -->
-        <div class="grid gap-2">
-            <flux:input wire:model="email" id="email" label="{{ __('Email') }}" type="email" name="email" required autocomplete="email" />
+    <form wire:submit="resetPassword" class="flex flex-col gap-4" aria-label="Criar nova senha">
+        <div>
+            <label for="email" class="nf-label">E-mail</label>
+            <input wire:model="email" id="email" name="email" type="email" required autocomplete="email" class="nf-input" />
+            @error('email') <p class="mt-1 text-sm font-bold text-neg" role="alert">{{ $message }}</p> @enderror
+        </div>
+        <div>
+            <label for="password" class="nf-label">Nova senha</label>
+            <input wire:model="password" id="password" name="password" type="password" required autocomplete="new-password" placeholder="Mínimo de 8 caracteres" class="nf-input" />
+            @error('password') <p class="mt-1 text-sm font-bold text-neg" role="alert">{{ $message }}</p> @enderror
+        </div>
+        <div>
+            <label for="password_confirmation" class="nf-label">Confirmar nova senha</label>
+            <input wire:model="password_confirmation" id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password" class="nf-input" />
         </div>
 
-        <!-- Password -->
-        <div class="grid gap-2">
-            <flux:input
-                wire:model="password"
-                id="password"
-                label="{{ __('Password') }}"
-                type="password"
-                name="password"
-                required
-                autocomplete="new-password"
-                placeholder="Password"
-            />
-        </div>
-
-        <!-- Confirm Password -->
-        <div class="grid gap-2">
-            <flux:input
-                wire:model="password_confirmation"
-                id="password_confirmation"
-                label="{{ __('Confirm password') }}"
-                type="password"
-                name="password_confirmation"
-                required
-                autocomplete="new-password"
-                placeholder="Confirm password"
-            />
-        </div>
-
-        <div class="flex items-center justify-end">
-            <flux:button type="submit" variant="primary" class="w-full">
-                {{ __('Reset password') }}
-            </flux:button>
-        </div>
+        <button type="submit" class="nf-btn w-full" wire:loading.attr="disabled">Salvar nova senha</button>
     </form>
+
+    <p class="text-center text-sm text-muted"><a href="{{ route('login') }}" wire:navigate class="font-extrabold text-brand">Voltar para o login</a></p>
 </div>

@@ -32,30 +32,18 @@ new #[Layout('components.layouts.auth')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-6">
-    <x-auth-header
-        title="Confirm password"
-        description="This is a secure area of the application. Please confirm your password before continuing."
-    />
+<div class="flex flex-col gap-5">
+    <x-auth-header title="Confirmar senha" description="Esta é uma área protegida. Confirme a sua senha para continuar." />
 
-    <!-- Session Status -->
     <x-auth-session-status class="text-center" :status="session('status')" />
 
-    <form wire:submit="confirmPassword" class="flex flex-col gap-6">
-        <!-- Password -->
-        <div class="grid gap-2">
-            <flux:input
-                wire:model="password"
-                id="password"
-                label="{{ __('Password') }}"
-                type="password"
-                name="password"
-                required
-                autocomplete="new-password"
-                placeholder="Password"
-            />
+    <form wire:submit="confirmPassword" class="flex flex-col gap-4" aria-label="Confirmar senha">
+        <div>
+            <label for="password" class="nf-label">Senha</label>
+            <input wire:model="password" id="password" name="password" type="password" required autofocus autocomplete="current-password" placeholder="••••••••" class="nf-input" />
+            @error('password') <p class="mt-1 text-sm font-bold text-neg" role="alert">{{ $message }}</p> @enderror
         </div>
 
-        <flux:button variant="primary" type="submit" class="w-full">{{ __('Confirm') }}</flux:button>
+        <button type="submit" class="nf-btn w-full" wire:loading.attr="disabled">Confirmar</button>
     </form>
 </div>

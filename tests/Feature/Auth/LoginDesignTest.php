@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Livewire\Volt\Volt;
 
@@ -27,4 +28,22 @@ it('o convite inválido mostra aviso em português', function () {
     $url = URL::signedRoute('invitation.accept', ['token' => 'inexistente']);
 
     $this->get($url)->assertOk()->assertSee('Este convite não é mais válido');
+});
+
+it('redefinir senha, confirmar senha e verificar e-mail estão em português', function () {
+    $this->get('/reset-password/um-token')->assertOk()->assertSee('Criar nova senha')->assertSee('Salvar nova senha')->assertDontSee('Reset password');
+
+    [$eliel] = makeCouple();
+    $eliel->forceFill(['email_verified_at' => null])->save();
+
+    $this->actingAs($eliel)->get('/confirm-password')->assertOk()->assertSee('Confirmar senha')->assertSee('Esta é uma área protegida');
+    $this->actingAs($eliel)->get('/verify-email')->assertOk()->assertSee('Confirme o seu e-mail')->assertSee('Reenviar e-mail de verificação')->assertSee('Sair')->assertDontSee('Resend');
+});
+
+it('o envio do e-mail de verificação mostra o aviso em português', function () {
+    [$eliel] = makeCouple();
+    $eliel->forceFill(['email_verified_at' => null])->save();
+    Notification::fake();
+
+    Volt::actingAs($eliel)->test('auth.verify-email')->call('sendVerification')->assertSee('Enviamos um novo link');
 });
