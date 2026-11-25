@@ -72,45 +72,36 @@ new #[Layout('components.layouts.auth')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-6">
-    <x-auth-header title="Log in to your account" description="Enter your email and password below to log in" />
+<div class="flex flex-col gap-5">
+    <x-auth-header title="Entrar" />
 
-    <!-- Session Status -->
     <x-auth-session-status class="text-center" :status="session('status')" />
 
-    <form wire:submit="login" class="flex flex-col gap-6">
-        <!-- Email Address -->
-        <flux:input wire:model="email" label="{{ __('Email address') }}" type="email" name="email" required autofocus autocomplete="email" placeholder="email@example.com" />
-
-        <!-- Password -->
-        <div class="relative">
-            <flux:input
-                wire:model="password"
-                label="{{ __('Password') }}"
-                type="password"
-                name="password"
-                required
-                autocomplete="current-password"
-                placeholder="Password"
-            />
-
-            @if (Route::has('password.request'))
-                <x-text-link class="absolute right-0 top-0" href="{{ route('password.request') }}">
-                    {{ __('Forgot your password?') }}
-                </x-text-link>
-            @endif
+    <form wire:submit="login" class="flex flex-col gap-4" aria-label="Entrar">
+        <div>
+            <label for="email" class="nf-label">E-mail</label>
+            <input wire:model="email" id="email" name="email" type="email" required autofocus autocomplete="email" placeholder="voce@email.com" class="nf-input" />
+            @error('email') <p class="mt-1 text-sm font-bold text-neg" role="alert">{{ $message }}</p> @enderror
         </div>
 
-        <!-- Remember Me -->
-        <flux:checkbox wire:model="remember" label="{{ __('Remember me') }}" />
-
-        <div class="flex items-center justify-end">
-            <flux:button variant="primary" type="submit" class="w-full">{{ __('Log in') }}</flux:button>
+        <div>
+            <div class="flex items-center justify-between">
+                <label for="password" class="nf-label">Senha</label>
+                @if (Route::has('password.request'))
+                    <a href="{{ route('password.request') }}" wire:navigate class="mb-1 text-xs font-bold text-brand">Esqueci a senha</a>
+                @endif
+            </div>
+            <input wire:model="password" id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••" class="nf-input" />
+            @error('password') <p class="mt-1 text-sm font-bold text-neg" role="alert">{{ $message }}</p> @enderror
         </div>
+
+        <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model="remember" class="size-5 accent-brand" /> Manter conectado</label>
+
+        <button type="submit" class="nf-btn w-full" wire:loading.attr="disabled">Entrar</button>
     </form>
 
-    <div class="space-x-1 text-center text-sm text-zinc-600 dark:text-zinc-400">
-        Don't have an account?
-        <x-text-link href="{{ route('register') }}">Sign up</x-text-link>
-    </div>
+    <p class="text-center text-sm leading-relaxed text-muted">
+        Cada um tem o seu login e os dois veem os mesmos dados.<br>
+        Ainda não tem conta? <a href="{{ route('register') }}" wire:navigate class="font-extrabold text-brand">Criar conta</a>
+    </p>
 </div>

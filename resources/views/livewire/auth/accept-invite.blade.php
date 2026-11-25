@@ -48,18 +48,19 @@ new #[Layout('components.layouts.auth')] class extends Component {
     }
 }; ?>
 
-<div class="flex flex-col gap-6">
-    <x-auth-header title="Você foi convidado(a)" description="Crie sua conta para dividir as finanças com seu par" />
+<div class="flex flex-col gap-5">
+    <x-auth-header title="Você foi convidado(a)" description="Crie sua conta para dividir as finanças com seu par." />
 
     @if ($error)
-        <flux:callout variant="danger" icon="exclamation-circle" heading="{{ $error }}" />
+        <p role="alert" class="rounded-2xl bg-neg-soft px-4 py-3 text-sm font-bold text-[#8E2F20]" data-testid="invite-error">{{ $error }}</p>
+        <a href="{{ route('login') }}" wire:navigate class="nf-btn-ghost w-full">Ir para o login</a>
     @else
-        <form wire:submit="accept" class="flex flex-col gap-6">
-            <flux:input value="{{ $email }}" label="E-mail" type="email" disabled />
-            <flux:input wire:model="name" label="Seu nome" type="text" required autofocus autocomplete="name" />
-            <flux:input wire:model="password" label="Senha" type="password" required autocomplete="new-password" viewable />
-            <flux:input wire:model="password_confirmation" label="Confirmar senha" type="password" required autocomplete="new-password" viewable />
-            <flux:button type="submit" variant="primary" class="w-full">Criar conta e entrar</flux:button>
+        <form wire:submit="accept" class="flex flex-col gap-4" aria-label="Aceitar convite">
+            <div><label for="invite-email" class="nf-label">E-mail</label><input id="invite-email" value="{{ $email }}" type="email" disabled class="nf-input bg-zinc-100" /></div>
+            <div><label for="name" class="nf-label">Seu nome</label><input wire:model="name" id="name" type="text" required autofocus autocomplete="name" class="nf-input" />@error('name') <p class="mt-1 text-sm font-bold text-neg" role="alert">{{ $message }}</p> @enderror</div>
+            <div><label for="password" class="nf-label">Senha</label><input wire:model="password" id="password" type="password" required autocomplete="new-password" class="nf-input" />@error('password') <p class="mt-1 text-sm font-bold text-neg" role="alert">{{ $message }}</p> @enderror</div>
+            <div><label for="password_confirmation" class="nf-label">Confirmar senha</label><input wire:model="password_confirmation" id="password_confirmation" type="password" required autocomplete="new-password" class="nf-input" /></div>
+            <button type="submit" class="nf-btn w-full" wire:loading.attr="disabled">Criar conta e entrar</button>
         </form>
     @endif
 </div>
