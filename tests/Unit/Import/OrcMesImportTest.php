@@ -1,0 +1,98 @@
+<?php
+
+use App\Import\InvalidImportFile;
+use App\Import\OrcMesImport;
+use App\Support\Money;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Tests\Fixtures\OrcMesFixture;
+
+it('lê o caso de Setembro: Bradesco 600, Madrinha +115, Vale 2.250 e fechamento −485', function () {
+    $payload = (new OrcMesImport)->parse(OrcMesFixture::setembro());
+
+    $bradesco = $payload->cards[0];
+    expect($bradesco['name'])->toBe('Bradesco')
+        ->and($payload->cardTotal($bradesco))->toBe(60000)
+        ->and($payload->cards[1]['name'])->toBe('Cresol')->and($payload->cardTotal($payload->cards[1]))->toBe(0)
+        ->and($payload->personNet($payload->people[0]))->toBe(11500)
+        ->and($payload->people[0]['name'])->toBe('Madrinha')
+        ->and($payload->vale['amount'])->toBe(225000)
+        ->and($payload->detectedMonth)->toBe(9)
+        ->and($payload->closing()->closing)->toBe(-48500)
+        ->and(Money::signed($payload->closing()->closing))->toBe("\u{2212}R\$ 485,00");
+});
+
+it('ignora linhas que são só fórmulas de outros blocos (cartão e saldo de pessoa)', function () {
+    $payload = (new OrcMesImport)->parse(OrcMesFixture::setembro());
+
+    expect($payload->entries)->toBe([]); // nada de "Cartão Bradesco" nem "saldo da Madrinha" duplicados
+});
+
+it('lê entradas e saídas avulsas com o estado Pago', function () {
+    $payload = (new OrcMesImport)->parse(OrcMesFixture::setembro([
+        'entradas' => [['Salário', 5000, true]],
+        'saidas' => [['Aluguel', 1200.5, false], ['Internet', 99.9, true]],
+    ]));
+
+    expect($payload->entries)->toBe([
+        ['type' => 'entrada', 'name' => 'Salário', 'amount' => 500000, 'paid' => true],
+        ['type' => 'saida', 'name' => 'Aluguel', 'amount' => 120050, 'paid' => false],
+        ['type' => 'saida', 'name' => 'Internet', 'amount' => 9990, 'paid' => true],
+    ]);
+});
+
+it('distingue fixo de parcelado pela coluna Parcelamento/Data', function () {
+    $payload = (new OrcMesImport)->parse(OrcMesFixture::setembro(['bradesco' => [['2/10', 'Geladeira', 150], ['sexta', 'Misterioso', 20]]]));
+
+    $linhas = $payload->cards[0]['lines'];
+    expect($linhas[0]['kind'])->toBe('fixo')
+        ->and($linhas[2])->toMatchArray(['kind' => 'parcelado', 'name' => 'Geladeira', 'amount' => 15000, 'installment' => [2, 10]])
+        ->and($linhas[3]['kind'])->toBe('avulso')
+        ->and($payload->warnings)->toHaveCount(1);
+});
+
+it('lê os gastos do vale', function () {
+    $payload = (new OrcMesImport)->parse(OrcMesFixture::setembro(['vale_gastos' => [['Lanche', 250]]]));
+
+    expect($payload->vale['spends'])->toBe([['name' => 'Lanche', 'amount' => 25000]]);
+});
+
+it('rejeita aba errada, arquivo que não é planilha e planilha sem os blocos', function () {
+    $parser = new OrcMesImport;
+
+    expect(fn () => $parser->parse(OrcMesFixture::setembro(['sheet' => 'Outra aba'])))->toThrow(InvalidImportFile::class);
+
+    $texto = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
+    file_put_contents($texto, 'isto não é uma planilha');
+    expect(fn () => $parser->parse($texto))->toThrow(InvalidImportFile::class);
+
+    $book = new Spreadsheet;
+    $book->getActiveSheet()->setTitle('Orç - Mês')->setCellValue('A1', 'vazia');
+    $vazia = tempnam(sys_get_temp_dir(), 'v').'.xlsx';
+    (new Xlsx($book))->save($vazia);
+    expect(fn () => $parser->parse($vazia))->toThrow(InvalidImportFile::class);
+});
+
+it('processa uma planilha com 500 linhas em até 10 segundos', function () {
+    $book = new Spreadsheet;
+    $s = $book->getActiveSheet()->setTitle('Orç - Mês');
+    $s->setCellValue('B4', 'Entradas')->setCellValue('B5', 'Pago');
+    $s->setCellValue('B6', 'Saídas'); // placeholder: reposicionado abaixo
+    $s->setCellValue('B6', null);
+    $saidaRow = 6 + 250;
+    for ($r = 6; $r < $saidaRow; $r++) {
+        $s->setCellValue("C{$r}", "Entrada {$r}")->setCellValue("D{$r}", 10 + $r)->setCellValue("B{$r}", true);
+    }
+    $s->setCellValue("B{$saidaRow}", 'Saídas')->setCellValue('B'.($saidaRow + 1), 'Pago');
+    for ($r = $saidaRow + 2; $r < $saidaRow + 252; $r++) {
+        $s->setCellValue("C{$r}", "Saída {$r}")->setCellValue("D{$r}", 5 + $r);
+    }
+    $s->setCellValue('B'.($saidaRow + 252), 'FECHAMENTO DO MÊS');
+    $path = tempnam(sys_get_temp_dir(), 'g').'.xlsx';
+    (new Xlsx($book))->save($path);
+
+    $inicio = hrtime(true);
+    $payload = (new OrcMesImport)->parse($path);
+
+    expect(count($payload->entries))->toBe(500)->and((hrtime(true) - $inicio) / 1e9)->toBeLessThan(10.0);
+});
