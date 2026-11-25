@@ -49,9 +49,6 @@
 
     <div class="flex flex-wrap gap-5">
         <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model="paid" class="size-5 accent-brand" /> {{ $kind === 'entrada' ? 'Já recebido' : 'Já está pago' }}</label>
-        @if ($kind === 'saida')
-            <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model="joint" class="size-5 accent-brand" /> Gasto do casal (entra no acerto)</label>
-        @endif
     </div>
 
     <fieldset class="nf-card p-4">

@@ -6,7 +6,6 @@
         ['people', 'Pessoas', 'people'],
         ['vale', 'Vale', 'vale'],
         ['recurring', 'Recorrentes', 'repeat'],
-        ['settlement', 'Acerto do casal', 'swap'],
         ['goals', 'Metas e vencimentos', 'target'],
         ['charts', 'Gráficos', 'chart'],
         ['report', 'Relatório', 'pie'],

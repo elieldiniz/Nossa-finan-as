@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Schema;
 
 it('cria as tabelas e colunas do casal', function () {
     foreach (['couples', 'invitations', 'categories', 'cards', 'recurrences', 'entries', 'people',
-        'person_debts', 'person_debt_installments', 'vales', 'vale_spends', 'goals', 'settlements', 'card_invoices'] as $table) {
+        'person_debts', 'person_debt_installments', 'vales', 'vale_spends', 'goals', 'card_invoices'] as $table) {
         expect(Schema::hasTable($table))->toBeTrue("tabela {$table}");
     }
 

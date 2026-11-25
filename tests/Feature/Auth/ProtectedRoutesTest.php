@@ -3,7 +3,7 @@
 it('todas as rotas de dados exigem sessão', function (string $route) {
     $this->get(route($route))->assertRedirect('/login');
 })->with([
-    'dashboard', 'statement', 'entry.create', 'cards', 'people', 'vale', 'recurring', 'settlement',
+    'dashboard', 'statement', 'entry.create', 'cards', 'people', 'vale', 'recurring',
     'goals', 'charts', 'report', 'categories', 'more', 'import', 'invite',
 ]);
 

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Couple extends Model
 {
-    protected $fillable = ['name', 'split_first_percent'];
+    protected $fillable = ['name'];
 
     public function members(): HasMany
     {

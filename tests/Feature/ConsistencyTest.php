@@ -3,6 +3,7 @@
 use App\Livewire\Entry\EntryForm;
 use App\Livewire\Goals\GoalsPage;
 use App\Livewire\Home\HomePage;
+use App\Livewire\More\MorePage;
 use App\Livewire\Recurring\RecurringPage;
 use App\Livewire\Statement\StatementPage;
 use App\Models\Entry;
@@ -107,4 +108,16 @@ it('não existe mais a tela de aparência (o app é só claro)', function () {
     [$eliel] = makeCouple();
 
     $this->actingAs($eliel)->get('/settings/appearance')->assertNotFound();
+});
+
+it('o "Acerto do casal" foi retirado do app: sem rota, sem menu e sem a caixinha "Gasto do casal"', function () {
+    [$eliel] = makeCouple();
+
+    $this->actingAs($eliel)->get('/acerto')->assertNotFound();
+
+    $html = $this->actingAs($eliel)->get(route('dashboard'))->getContent();
+    expect($html)->not->toContain('Acerto do casal');
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->assertDontSee('Gasto do casal')->assertDontSee('entra no acerto');
+    Livewire::actingAs($eliel)->test(MorePage::class)->assertDontSee('Acerto');
 });

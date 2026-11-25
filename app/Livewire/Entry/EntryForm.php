@@ -38,8 +38,6 @@ class EntryForm extends Component
 
     public bool $paid = false;
 
-    public bool $joint = false;
-
     #[Url(as: 'r')]
     public string $repeat = 'none'; // none | monthly | yearly | installments
 
@@ -67,7 +65,6 @@ class EntryForm extends Component
 
         if ($this->kind === 'entrada') {
             $this->cardId = null;
-            $this->joint = false;
 
             if ($this->repeat === 'installments') {
                 $this->repeat = 'none'; // entrada não é parcelada (parcelas a receber ficam em Pessoas)
@@ -103,7 +100,6 @@ class EntryForm extends Component
 
         if ($this->kind === 'entrada') {
             $this->cardId = null; // entrada não passa por cartão nem entra no acerto do casal
-            $this->joint = false;
         }
 
         $this->validate([
@@ -133,7 +129,6 @@ class EntryForm extends Component
                 'card_id' => $this->cardId,
                 'owner_id' => $this->ownerId,
                 'paid' => $this->paid,
-                'joint' => $this->joint,
                 'repeat' => $repeat,
             ]);
         } catch (InvalidArgumentException $e) {

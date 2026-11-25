@@ -13,7 +13,6 @@ use App\Livewire\More\MorePage;
 use App\Livewire\People\PeoplePage;
 use App\Livewire\Recurring\RecurringPage;
 use App\Livewire\Reports\ReportPage;
-use App\Livewire\Settlement\SettlementPage;
 use App\Livewire\Statement\StatementPage;
 use App\Livewire\Vale\ValePage;
 use Illuminate\Support\Facades\Route;
@@ -30,7 +29,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('pessoas', PeoplePage::class)->name('people');
     Route::get('vale', ValePage::class)->name('vale');
     Route::get('recorrentes', RecurringPage::class)->name('recurring');
-    Route::get('acerto', SettlementPage::class)->name('settlement');
     Route::get('metas', GoalsPage::class)->name('goals');
     Route::get('graficos', ChartsPage::class)->name('charts');
     Route::get('relatorio', ReportPage::class)->name('report');

@@ -6,7 +6,7 @@
         ['cards', 'Cartões', 'card'],
         ['more', 'Mais', 'dots'],
     ];
-    $moreRoutes = ['more', 'people', 'vale', 'recurring', 'settlement', 'goals', 'report', 'import', 'categories', 'invite', 'charts'];
+    $moreRoutes = ['more', 'people', 'vale', 'recurring', 'goals', 'report', 'import', 'categories', 'invite', 'charts'];
 @endphp
 <nav aria-label="Navegação" data-testid="bottom-bar"
      class="fixed inset-x-0 bottom-0 z-40 flex h-[84px] items-start border-t border-line bg-white px-2 pt-1.5 lg:hidden">

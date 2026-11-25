@@ -9,7 +9,7 @@ Itens que os testes automáticos não conseguem conferir sozinhos. Marque no cel
 - [ ] O saldo negativo mostra **sinal "−" e rótulo**, não só a cor.
 
 ## 2. Largura de 360 px sem rolagem horizontal
-- [ ] Início, Extrato, Lançar, Cartões, Pessoas, Vale, Recorrentes, Acerto, Metas, Gráficos, Relatório, Categorias, Importar e Mais em 360 px: sem barra de rolagem lateral.
+- [ ] Início, Extrato, Lançar, Cartões, Pessoas, Vale, Recorrentes, Metas, Gráficos, Relatório, Categorias, Importar e Mais em 360 px: sem barra de rolagem lateral.
 - [ ] Barra de baixo sempre visível e sem cobrir o último item da lista.
 - [ ] No PC (1280 px) aparece o menu lateral e a barra de baixo some.
 

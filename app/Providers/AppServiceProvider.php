@@ -34,7 +34,6 @@ class AppServiceProvider extends ServiceProvider
             Models\Card::class => Policies\CardPolicy::class,
             Models\Person::class => Policies\PersonPolicy::class,
             Models\Goal::class => Policies\GoalPolicy::class,
-            Models\Settlement::class => Policies\SettlementPolicy::class,
             Models\CardInvoice::class => Policies\CardInvoicePolicy::class,
         ] as $model => $policy) {
             Gate::policy($model, $policy);

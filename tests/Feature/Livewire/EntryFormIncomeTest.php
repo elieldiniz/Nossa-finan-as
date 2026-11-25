@@ -26,28 +26,28 @@ it('em Entrada mostra só categorias de entrada e sugere Salário', function () 
         ->assertSet('categoryId', categoryOf($eliel->couple_id, 'Salário')->id);
 });
 
-it('em Entrada esconde "Pago com" e "Gasto do casal" e troca os rótulos', function () {
+it('em Entrada esconde "Pago com" e troca os rótulos', function () {
     [$eliel] = makeCouple();
     $tela = Livewire::actingAs($eliel)->test(EntryForm::class);
 
-    $tela->assertSee('Pago com')->assertSee('Já está pago')->assertSee('Gasto do casal')->assertSee('De quem')
+    $tela->assertSee('Pago com')->assertSee('Já está pago')->assertSee('De quem')
         ->set('kind', 'entrada')->set('repeat', 'monthly')
-        ->assertDontSee('Pago com')->assertDontSee('Gasto do casal')->assertDontSee('Já está pago')
+        ->assertDontSee('Pago com')->assertDontSee('Já está pago')
         ->assertSee('Já recebido')->assertSee('Quem recebe')->assertSee('Recebe no dia')->assertSee('Salário de setembro');
 });
 
-it('salvar uma entrada grava sem cartão e sem marcar como gasto do casal', function () {
+it('salvar uma entrada grava sem cartão', function () {
     [$eliel] = makeCouple();
     $this->actingAs($eliel);
     $cartao = makeCard($eliel);
 
     Livewire::test(EntryForm::class)->set('month', '2026-09')
-        ->set('cardId', $cartao->id)->set('joint', true)
+        ->set('cardId', $cartao->id)
         ->set('kind', 'entrada')->set('amount', 'R$ 3.000,00')->set('name', 'Salário')->set('paid', true)->call('save')->assertHasNoErrors();
 
     $e = Entry::first();
     expect($e->kind)->toBe('entrada')->and($e->amount_cents)->toBe(300000)->and($e->card_id)->toBeNull()
-        ->and($e->joint)->toBeFalse()->and($e->paid)->toBeTrue()->and($e->category->name)->toBe('Salário');
+        ->and($e->paid)->toBeTrue()->and($e->category->name)->toBe('Salário');
 });
 
 it('o valor aceita "3000" e "R$ 3.000,00" e grava o mesmo', function () {

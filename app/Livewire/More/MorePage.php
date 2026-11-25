@@ -10,12 +10,11 @@ use Livewire\Component;
 #[Title('Mais · Nossa Finanças')]
 class MorePage extends Component
 {
-    /** Os 9 itens de "Mais" (UI-03). */
+    /** Os 8 itens de "Mais" (UI-03). */
     public const ITEMS = [
         ['people', 'Pessoas', 'people'],
         ['vale', 'Vale', 'vale'],
         ['recurring', 'Recorrentes e assinaturas', 'repeat'],
-        ['settlement', 'Acerto do casal', 'swap'],
         ['goals', 'Metas e vencimentos', 'target'],
         ['report', 'Relatório', 'pie'],
         ['import', 'Importar planilha', 'upload'],

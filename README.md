@@ -1,6 +1,6 @@
 # Nossa Finanças
 
-App de finanças para casal, feito a partir da planilha "Orç - Mês": fechamento do mês, cartões (fixos e parcelados), pessoas a pagar/receber, vale, recorrentes, acerto do casal, metas, gráficos e importação da planilha. Cada um lança o que é seu e vê o do outro em leitura; "Nós" mostra tudo junto.
+App de finanças para casal, feito a partir da planilha "Orç - Mês": fechamento do mês, cartões (fixos e parcelados), pessoas a pagar/receber, vale, recorrentes, metas, gráficos e importação da planilha. Cada um lança o que é seu e vê o do outro em leitura; "Nós" mostra tudo junto.
 
 **Stack:** Laravel 12 · Livewire 3 (starter kit com Flux) · Alpine.js · Tailwind CSS 4 · MySQL · Pest · Chart.js. App instalável (PWA).
 
