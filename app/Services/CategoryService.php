@@ -25,8 +25,8 @@ class CategoryService
             throw new InvalidArgumentException('Já existe uma categoria com esse nome (ou o nome está vazio).');
         }
 
-        if (! in_array($kind, [Category::SAIDA, Category::ENTRADA, Category::AMBAS], true)) {
-            throw new InvalidArgumentException('Escolha se a categoria é de saída, de entrada ou de ambas.');
+        if (! in_array($kind, [Category::SAIDA, Category::ENTRADA, Category::AMBAS, Category::APORTE], true)) {
+            throw new InvalidArgumentException('Escolha se a categoria é de saída, de entrada, de investimento ou de ambas.');
         }
 
         $category = new Category(['name' => $name, 'kind' => $kind, 'position' => (int) Category::max('position') + 1]);
@@ -61,7 +61,7 @@ class CategoryService
             throw new InvalidArgumentException('Esta categoria está em uso: escolha outra para receber os lançamentos.');
         }
 
-        if ($inUse && $category->kind !== $moveTo->kind && $moveTo->kind !== Category::AMBAS) {
+        if ($inUse && ! $moveTo->fitsKind($category->kind === Category::AMBAS ? Category::SAIDA : $category->kind)) {
             throw new InvalidArgumentException('A categoria de destino precisa servir para o mesmo tipo (entrada ou saída).');
         }
 

@@ -49,6 +49,9 @@ class EntryForm extends Component
 
     public ?int $installmentsTotal = null;
 
+    #[Url(as: 'vence')]
+    public ?string $dueOn = null; // "Vence em" (só para saída que não se repete)
+
     public ?string $error = null;
 
     /** Troca de Saída para Entrada (e vice-versa): ajusta categoria e campos que só valem para gasto. */
@@ -59,15 +62,20 @@ class EntryForm extends Component
 
         $fits = Category::forKind($this->kind)->whereKey($this->categoryId)->exists();
         if (! $fits) {
-            // Para entrada já sugere "Salário"; para saída o usuário escolhe.
-            $this->categoryId = $this->kind === 'entrada' ? Category::where('name', 'Salário')->value('id') : null;
+            // Entrada já sugere "Salário" e investimento "Reserva de emergência"; para saída a pessoa escolhe.
+            $this->categoryId = match ($this->kind) {
+                'entrada' => Category::where('name', 'Salário')->value('id'),
+                'aporte' => Category::where('name', 'Reserva de emergência')->value('id'),
+                default => null,
+            };
         }
 
-        if ($this->kind === 'entrada') {
+        if ($this->kind !== 'saida') {
             $this->cardId = null;
+            $this->dueOn = null;
 
             if ($this->repeat === 'installments') {
-                $this->repeat = 'none'; // entrada não é parcelada (parcelas a receber ficam em Pessoas)
+                $this->repeat = 'none'; // só saída é parcelada (parcelas a receber ficam em Pessoas)
             }
         }
     }
@@ -103,7 +111,8 @@ class EntryForm extends Component
         }
 
         $this->validate([
-            'kind' => ['required', 'in:entrada,saida'],
+            'kind' => ['required', 'in:entrada,saida,aporte'],
+            'dueOn' => ['nullable', 'date'],
             'amount' => ['required', 'string'],
             'name' => ['required', 'string', 'max:255'],
             'categoryId' => ['required', 'integer'],
@@ -127,6 +136,7 @@ class EntryForm extends Component
                 'month' => $this->monthDate()->toDateString(),
                 'category_id' => $this->categoryId,
                 'card_id' => $this->cardId,
+                'due_on' => $this->kind === 'saida' && $this->repeat === 'none' ? $this->dueOn : null,
                 'owner_id' => $this->ownerId,
                 'paid' => $this->paid,
                 'repeat' => $repeat,

@@ -8,6 +8,7 @@ namespace App\Domain;
  *  - cada cartão com total > 0 vira UMA saída;
  *  - o saldo líquido de cada pessoa vira entrada (se positivo) ou saída (se negativo);
  *  - o Vale fica de fora (é controlado à parte);
+ *  - investimento ("aporte") não é gasto: fica em "invested" e não muda o fechamento;
  *  - "pago" não muda o resultado (é só informativo).
  */
 final class MonthClosing
@@ -21,13 +22,14 @@ final class MonthClosing
     {
         $in = 0;
         $out = 0;
+        $invested = 0;
 
         foreach ($entries as $entry) {
-            if ($entry['type'] === 'entrada') {
-                $in += $entry['amount'];
-            } else {
-                $out += $entry['amount'];
-            }
+            match ($entry['type']) {
+                'entrada' => $in += $entry['amount'],
+                'aporte' => $invested += $entry['amount'],
+                default => $out += $entry['amount'],
+            };
         }
 
         foreach ($cardTotals as $total) {
@@ -44,6 +46,6 @@ final class MonthClosing
             }
         }
 
-        return new ClosingResult($in, $out);
+        return new ClosingResult($in, $out, $invested);
     }
 }

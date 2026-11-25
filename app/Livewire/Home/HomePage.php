@@ -2,14 +2,18 @@
 
 namespace App\Livewire\Home;
 
-use App\Domain\DueWindow;
 use App\Domain\GoalAlert;
 use App\Livewire\Concerns\WithMonthView;
+use App\Models\Card;
+use App\Models\CardInvoice;
 use App\Models\Entry;
 use App\Models\Goal;
+use App\Services\DueBills;
+use App\Services\EntryService;
 use App\Services\MonthSummary;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -19,6 +23,27 @@ use Livewire\Component;
 class HomePage extends Component
 {
     use WithMonthView;
+
+    /** "Marcar pago" nas contas a vencer: lançamento (só o dono) ou fatura do cartão (compartilhada). */
+    public function payBill(string $type, int $id, ?string $month, EntryService $entries): void
+    {
+        if ($type === 'invoice') {
+            $card = Card::findOrFail($id);
+            Gate::authorize('update', $card);
+
+            $invoice = CardInvoice::firstOrNew(['card_id' => $card->id, 'month' => $month.'-01']);
+            $invoice->couple_id = auth()->user()->couple_id;
+            $invoice->paid = true;
+            $invoice->paid_at = now();
+            $invoice->save();
+
+            return;
+        }
+
+        $entry = Entry::findOrFail($id);
+        Gate::authorize('update', $entry);
+        $entries->setPaid(auth()->user(), $entry, true);
+    }
 
     public function render()
     {
@@ -33,7 +58,8 @@ class HomePage extends Component
             'recent' => $rows->take(5),
             'byCategory' => $this->expensesByCategory($summary),
             'goalAlert' => $this->goalAlert($summary),
-            'due' => $this->due(),
+            'due' => app(DueBills::class)->upcoming(CarbonImmutable::now(), $this->context()),
+            'investing' => $this->investing($summary),
         ]);
     }
 
@@ -50,7 +76,7 @@ class HomePage extends Component
 
     private function goalAlert(array $summary): array
     {
-        $goal = Goal::whereNull('category_id')->first();
+        $goal = Goal::where('kind', Goal::GASTO)->whereNull('category_id')->first();
 
         return [
             'goal' => $goal,
@@ -58,16 +84,15 @@ class HomePage extends Component
         ];
     }
 
-    private function due(): array
+    /** Investimentos: investido no mês, meta de investir e total acumulado até o mês. */
+    private function investing(array $summary): array
     {
-        $today = CarbonImmutable::now()->startOfDay();
         $context = $this->context();
+        $goal = Goal::where('kind', Goal::INVESTIMENTO)->whereNull('category_id')->first();
 
-        $items = Entry::query()->where('paid', false)->where('kind', Entry::SAIDA)
-            ->whereBetween('due_on', [$today->toDateString(), $today->addDays(7)->toDateString()])
-            ->get()->filter(fn (Entry $e) => $context->applies($e->owner_id))
-            ->map(fn (Entry $e) => ['due' => $e->due_on->toDateString(), 'paid' => $e->paid, 'name' => $e->name, 'amount' => $e->amount_cents])->all();
+        $accumulated = (int) Entry::where('kind', Entry::APORTE)->where('month', '<=', $this->monthDate()->toDateString())->get()
+            ->filter(fn (Entry $e) => $context->applies($e->owner_id))->sum('amount_cents');
 
-        return DueWindow::upcoming($items, $today, 7);
+        return ['month' => $summary['closing']->invested, 'goal' => $goal, 'accumulated' => $accumulated];
     }
 }

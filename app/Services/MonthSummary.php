@@ -99,22 +99,23 @@ class MonthSummary
     {
         $rows = $summary['entries']->map(fn (Entry $e) => [
             'source' => 'entry', 'id' => $e->id, 'name' => $e->name,
-            'sub' => ($e->category?->name ?? 'Sem categoria').($e->installment_label ? ' · parcela '.$e->installment_label : '').($e->recurrence_id ? ' · recorrente' : ''),
+            'sub' => ($e->kind === Entry::APORTE ? 'Investimento · ' : '').($e->category?->name ?? 'Sem categoria').($e->installment_label ? ' · parcela '.$e->installment_label : '').($e->recurrence_id ? ' · recorrente' : ''),
             'signed' => $e->kind === Entry::ENTRADA ? $e->amount_cents : -$e->amount_cents,
+            'kind' => $e->kind,
             'paid' => $e->paid, 'owner_id' => $e->owner_id, 'recurring' => $e->recurrence_id !== null,
         ]);
 
         foreach ($summary['cards'] as $c) {
             if ($c['expense'] !== null) {
                 $rows->push(['source' => 'card', 'id' => $c['card']->id, 'name' => 'Cartão '.$c['card']->name, 'sub' => 'Cartões · automático',
-                    'signed' => -$c['total'], 'paid' => $c['paid'], 'owner_id' => null, 'recurring' => false]);
+                    'signed' => -$c['total'], 'kind' => 'saida', 'paid' => $c['paid'], 'owner_id' => null, 'recurring' => false]);
             }
         }
 
         foreach ($summary['people'] as $p) {
             if ($p['net'] !== 0) {
                 $rows->push(['source' => 'person', 'id' => $p['person']->id, 'name' => 'Saldo '.$p['person']->name, 'sub' => 'Pessoas · automático',
-                    'signed' => $p['net'], 'paid' => false, 'owner_id' => null, 'recurring' => false]);
+                    'signed' => $p['net'], 'kind' => $p['net'] >= 0 ? 'entrada' : 'saida', 'paid' => false, 'owner_id' => null, 'recurring' => false]);
             }
         }
 

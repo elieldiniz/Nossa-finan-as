@@ -6,9 +6,18 @@ final class ClosingResult
 {
     public readonly int $closing;
 
-    public function __construct(public readonly int $income, public readonly int $expense)
+    /**
+     * @param  int  $invested  aportes do mês: não são gasto (não entram em "closing"), mas saem do caixa
+     */
+    public function __construct(public readonly int $income, public readonly int $expense, public readonly int $invested = 0)
     {
         $this->closing = $income - $expense;
+    }
+
+    /** O que sobra depois de investir (fechamento − investido). */
+    public function afterInvesting(): int
+    {
+        return $this->closing - $this->invested;
     }
 
     /** 'positivo' | 'negativo' | 'zero' — a tela mostra sinal e rótulo, nunca só cor (UI-05). */

@@ -15,6 +15,9 @@ class Entry extends Model
 
     public const SAIDA = 'saida';
 
+    /** Investimento (aporte). O valor é "aporte" porque a coluna kind tem 10 caracteres. */
+    public const APORTE = 'aporte';
+
     /** couple_id fica de fora de propósito: nunca vem do cliente. */
     protected $fillable = [
         'owner_id', 'kind', 'name', 'amount_cents', 'month', 'due_on', 'category_id', 'card_id',

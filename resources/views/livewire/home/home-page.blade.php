@@ -27,14 +27,22 @@
         <x-goal-banner :level="$goalAlert['level']" />
     @endif
 
-    @if (count($due))
-        <section class="nf-card p-5" aria-label="Vencimentos próximos" data-testid="due-banner">
-            <h2 class="text-base font-extrabold">Vence nos próximos 7 dias</h2>
-            @foreach ($due as $item)
-                <div class="nf-row"><span class="flex-1 text-sm font-bold">{{ $item['name'] }}</span><span class="text-sm text-muted">{{ \Carbon\Carbon::parse($item['due'])->format('d/m') }}</span><span class="text-sm font-extrabold">{{ Money::format($item['amount']) }}</span></div>
-            @endforeach
-        </section>
-    @endif
+    <section class="nf-card p-5" aria-label="Contas a vencer" data-testid="due-bills">
+        <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Contas a vencer</h2><span class="text-xs text-muted">próximos 7 dias</span></div>
+        @forelse ($due as $bill)
+            <div class="nf-row" wire:key="bill-{{ $bill['type'] }}-{{ $bill['id'] }}-{{ $bill['month'] }}" data-testid="bill">
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-2xl {{ $bill['days_left'] <= 1 ? 'bg-neg-soft text-neg' : 'bg-[#FFF1D6] text-[#6B4600]' }}"><x-nav.icon :name="$bill['type'] === 'invoice' ? 'card' : 'list'" class="size-5" /></span>
+                <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold">{{ $bill['name'] }}</span>
+                    <span class="text-xs {{ $bill['days_left'] <= 1 ? 'font-bold text-neg' : 'text-muted' }}">{{ $bill['days_left'] === 0 ? 'vence hoje' : ($bill['days_left'] === 1 ? 'vence amanhã' : 'vence em '.$bill['days_left'].' dias') }} · {{ \Carbon\Carbon::parse($bill['due'])->format('d/m') }}</span></span>
+                <span class="text-sm font-extrabold">{{ Money::format($bill['amount']) }}</span>
+                @unless ($view === 'par')
+                    <button type="button" wire:click="payBill('{{ $bill['type'] }}', {{ $bill['id'] }}, {{ $bill['month'] ? "'".$bill['month']."'" : 'null' }})" class="nf-chip !min-h-9 !px-3 !text-xs">Pago</button>
+                @endunless
+            </div>
+        @empty
+            <p class="mt-2 text-sm text-muted" data-testid="no-bills">Nada vence nos próximos 7 dias. <a href="{{ route('cards') }}" wire:navigate class="font-bold text-brand">Cadastre o “vence dia” dos cartões</a> e use “Vence em” ao lançar uma conta para ela aparecer aqui.</p>
+        @endforelse
+    </section>
 
     <div class="grid gap-4 lg:grid-cols-2">
         <section class="nf-card p-5" aria-label="Cartões" data-testid="cards-list">
@@ -71,11 +79,26 @@
         <p class="mt-1 text-xs text-muted">restante de {{ Money::format($v['amount']) }}</p>
     </a>
 
+    <a href="{{ route('goals') }}" wire:navigate class="nf-card block p-5" aria-label="Investimentos" data-testid="investing-card">
+        <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Investimentos</h2><span class="text-sm font-bold text-brand">Ver metas ›</span></div>
+        <div class="mt-2 grid grid-cols-2 gap-3">
+            <div class="rounded-2xl bg-brand-soft px-3 py-2"><div class="text-xs font-semibold text-brand">Investido no mês</div><div class="font-extrabold text-brand" data-testid="invested-month">{{ Money::format($investing['month']) }}</div></div>
+            <div class="rounded-2xl bg-ground px-3 py-2"><div class="text-xs font-semibold text-muted">Total já investido</div><div class="font-extrabold" data-testid="invested-total">{{ Money::format($investing['accumulated']) }}</div></div>
+        </div>
+        @if ($investing['goal'])
+            @php $ipct = min(100, intdiv($investing['month'] * 100, max($investing['goal']->limit_cents, 1))); @endphp
+            <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-line"><div class="h-full bg-brand" style="width: {{ $ipct }}%"></div></div>
+            <p class="mt-1 text-xs text-muted">{{ $ipct }}% da meta de {{ Money::format($investing['goal']->limit_cents) }} por mês</p>
+        @else
+            <p class="mt-2 text-xs text-muted">Toque no + e escolha “Investimento” para registrar um aporte.</p>
+        @endif
+    </a>
+
     <section class="nf-card p-5" aria-label="Últimas movimentações" data-testid="recent">
         <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Últimas movimentações</h2><a href="{{ route('statement') }}" wire:navigate class="text-sm font-bold text-brand">Extrato</a></div>
         @forelse ($recent as $row)
             <div class="nf-row">
-                <span class="flex size-10 items-center justify-center rounded-2xl {{ $row['signed'] >= 0 ? 'bg-pos-soft text-pos' : 'bg-neg-soft text-neg' }}"><x-nav.icon :name="$row['source'] === 'card' ? 'card' : ($row['source'] === 'person' ? 'people' : 'list')" class="size-5" /></span>
+                <span class="flex size-10 items-center justify-center rounded-2xl {{ ($row['kind'] ?? '') === 'aporte' ? 'bg-brand-soft text-brand' : ($row['signed'] >= 0 ? 'bg-pos-soft text-pos' : 'bg-neg-soft text-neg') }}"><x-nav.icon :name="$row['source'] === 'card' ? 'card' : ($row['source'] === 'person' ? 'people' : (($row['kind'] ?? '') === 'aporte' ? 'chart' : 'list'))" class="size-5" /></span>
                 <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold">{{ $row['name'] }}</span><span class="text-xs text-muted">{{ $row['sub'] }}</span></span>
                 <span class="text-sm font-extrabold {{ $row['signed'] >= 0 ? 'text-pos' : '' }}">{{ Money::signed($row['signed']) }}</span>
             </div>

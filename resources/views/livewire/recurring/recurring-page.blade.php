@@ -5,6 +5,7 @@
     <section class="nf-hero p-6">
         <p class="text-xs font-bold uppercase tracking-widest text-white/85">Gastos recorrentes deste mês</p>
         <p class="mt-1 text-4xl font-extrabold" data-testid="total">{{ Money::format($total) }}</p>
+        @if ($investTotal > 0) <p class="mt-2 inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-lime" data-testid="invest-total">Investimentos recorrentes: {{ Money::format($investTotal) }}</p> @endif
         @if ($incomeTotal > 0) <p class="mt-2 inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-lime" data-testid="income-total">Entradas recorrentes: {{ Money::signed($incomeTotal) }}</p> @endif
     </section>
 
@@ -14,7 +15,7 @@
             <div class="nf-row" wire:key="rec-{{ $r->id }}" data-testid="rec-{{ $r->id }}">
                 <span class="flex size-10 items-center justify-center rounded-2xl bg-brand-soft text-brand"><x-nav.icon name="repeat" class="size-5" /></span>
                 <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold">{{ $r->name }}</span>
-                    <span class="text-xs text-muted">{{ $r->kind === 'entrada' ? 'Entrada' : ($r->card?->name ?? 'Sem cartão') }} · {{ $r->frequency === 'yearly' ? 'todo ano' : 'todo mês' }}{{ $r->ends_on ? ' · até '.$r->ends_on->format('d/m/Y') : '' }}{{ $i['active'] ? '' : ' · fora deste mês' }}</span></span>
+                    <span class="text-xs text-muted">{{ ['entrada' => 'Entrada', 'aporte' => 'Investimento'][$r->kind] ?? ($r->card?->name ?? 'Sem cartão') }} · {{ $r->frequency === 'yearly' ? 'todo ano' : 'todo mês' }}{{ $r->ends_on ? ' · até '.$r->ends_on->format('d/m/Y') : '' }}{{ $i['active'] ? '' : ' · fora deste mês' }}</span></span>
                 <span class="text-sm font-extrabold {{ $r->kind === 'entrada' ? 'text-pos' : '' }} {{ $i['active'] ? '' : 'text-muted' }}">{{ $r->kind === 'entrada' ? '+' : '' }}{{ Money::format($r->amount_cents) }}</span>
             </div>
         @empty
@@ -24,15 +25,16 @@
 
     @unless ($readOnly)
         <form wire:submit="save" class="nf-card flex flex-col gap-3 p-5" aria-label="Novo recorrente">
-            <h2 class="text-base font-extrabold">{{ $kind === 'entrada' ? 'Nova entrada recorrente' : 'Nova assinatura ou fixo' }}</h2>
+            <h2 class="text-base font-extrabold">{{ ['entrada' => 'Nova entrada recorrente', 'aporte' => 'Novo investimento recorrente', 'saida' => 'Nova assinatura ou fixo'][$kind] }}</h2>
             <div role="tablist" aria-label="Tipo" class="flex rounded-full bg-line p-1">
                 <button type="button" role="tab" wire:click="$set('kind', 'saida')" aria-selected="{{ $kind === 'saida' ? 'true' : 'false' }}" class="min-h-11 flex-1 rounded-full text-sm font-bold {{ $kind === 'saida' ? 'bg-neg text-white' : 'text-muted' }}">Saída</button>
                 <button type="button" role="tab" wire:click="$set('kind', 'entrada')" aria-selected="{{ $kind === 'entrada' ? 'true' : 'false' }}" class="min-h-11 flex-1 rounded-full text-sm font-bold {{ $kind === 'entrada' ? 'bg-pos text-white' : 'text-muted' }}">Entrada</button>
+                <button type="button" role="tab" wire:click="$set('kind', 'aporte')" aria-selected="{{ $kind === 'aporte' ? 'true' : 'false' }}" class="min-h-11 flex-1 rounded-full text-sm font-bold {{ $kind === 'aporte' ? 'bg-brand text-white' : 'text-muted' }}">Investimento</button>
             </div>
-            <div><label for="rn" class="nf-label">Nome</label><input id="rn" type="text" wire:model="name" placeholder="{{ $kind === 'entrada' ? 'Ex.: salário, aluguel recebido' : 'Ex.: streaming, internet' }}" class="nf-input" />@error('name') <p class="text-sm font-bold text-neg">{{ $message }}</p> @enderror</div>
+            <div><label for="rn" class="nf-label">Nome</label><input id="rn" type="text" wire:model="name" placeholder="{{ ['entrada' => 'Ex.: salário, aluguel recebido', 'aporte' => 'Ex.: aporte no Tesouro, previdência', 'saida' => 'Ex.: streaming, internet'][$kind] }}" class="nf-input" />@error('name') <p class="text-sm font-bold text-neg">{{ $message }}</p> @enderror</div>
             <div class="grid grid-cols-2 gap-3">
                 <div><label for="ra" class="nf-label">Valor</label><input id="ra" type="text" inputmode="decimal" wire:model="amount" placeholder="R$ 0,00" class="nf-input" /></div>
-                <div><label for="rd" class="nf-label">{{ $kind === 'entrada' ? 'Recebe no dia' : 'Cobra no dia' }}</label><input id="rd" type="number" min="1" max="31" wire:model="chargeDay" class="nf-input" /></div>
+                <div><label for="rd" class="nf-label">{{ ['entrada' => 'Recebe no dia', 'aporte' => 'Aplica no dia', 'saida' => 'Cobra no dia'][$kind] }}</label><input id="rd" type="number" min="1" max="31" wire:model="chargeDay" class="nf-input" /></div>
                 @if ($kind === 'saida')<div><label for="rc" class="nf-label">Cartão</label><select id="rc" wire:model="cardId" class="nf-input"><option value="">Sem cartão</option>@foreach ($cards as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select></div>@endif
                 <div><label for="rk" class="nf-label">Categoria</label><select id="rk" wire:model="categoryId" class="nf-input"><option value="">Escolha…</option>@foreach ($categories as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select>@error('categoryId') <p class="text-sm font-bold text-neg">{{ $message }}</p> @enderror</div>
                 <div><label for="rf" class="nf-label">Repetir</label><select id="rf" wire:model="frequency" class="nf-input"><option value="monthly">Todo mês</option><option value="yearly">Todo ano</option></select></div>

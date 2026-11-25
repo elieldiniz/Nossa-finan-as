@@ -15,7 +15,7 @@ class MorePage extends Component
         ['people', 'Pessoas', 'people'],
         ['vale', 'Vale', 'vale'],
         ['recurring', 'Recorrentes e assinaturas', 'repeat'],
-        ['goals', 'Metas e vencimentos', 'target'],
+        ['goals', 'Metas e investimentos', 'target'],
         ['report', 'Relatório', 'pie'],
         ['import', 'Importar planilha', 'upload'],
         ['categories', 'Categorias', 'tag'],

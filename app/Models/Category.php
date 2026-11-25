@@ -16,6 +16,8 @@ class Category extends Model
 
     public const AMBAS = 'ambas';
 
+    public const APORTE = 'aporte';
+
     protected $table = 'categories';
 
     protected $fillable = ['name', 'kind', 'position'];
@@ -23,12 +25,20 @@ class Category extends Model
     /** Categorias que servem para o tipo de lançamento ("saida" ou "entrada"). */
     public function scopeForKind(Builder $query, string $kind): Builder
     {
-        // "Outros" (ambas) sempre por último
+        // Investimento só usa as próprias categorias; saída e entrada também usam "Outros" (ambas), que fica por último
+        if ($kind === self::APORTE) {
+            return $query->where('kind', self::APORTE);
+        }
+
         return $query->whereIn('kind', [$kind, self::AMBAS])->orderByRaw("case when kind = 'ambas' then 1 else 0 end");
     }
 
     public function fitsKind(string $kind): bool
     {
+        if ($kind === self::APORTE || $this->kind === self::APORTE) {
+            return $this->kind === $kind;
+        }
+
         return $this->kind === self::AMBAS || $this->kind === $kind;
     }
 }

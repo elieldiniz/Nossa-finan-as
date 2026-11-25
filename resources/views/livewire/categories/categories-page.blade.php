@@ -5,7 +5,7 @@
         @foreach ($categories as $category)
             <div class="nf-row flex-wrap" wire:key="c-{{ $category->id }}" data-testid="category-{{ $category->id }}">
                 <input type="text" wire:model="names.{{ $category->id }}" aria-label="Nome da categoria" class="nf-input !min-h-10 min-w-32 flex-1" />
-                <span class="rounded-full px-3 py-1 text-xs font-bold {{ $category->kind === 'entrada' ? 'bg-pos-soft text-pos' : ($category->kind === 'ambas' ? 'bg-brand-soft text-brand' : 'bg-neg-soft text-[#8E2F20]') }}" data-testid="kind-{{ $category->id }}">{{ ['saida' => 'Saída', 'entrada' => 'Entrada', 'ambas' => 'Entrada e saída'][$category->kind] }}</span>
+                <span class="rounded-full px-3 py-1 text-xs font-bold {{ $category->kind === 'entrada' ? 'bg-pos-soft text-pos' : (in_array($category->kind, ['ambas', 'aporte']) ? 'bg-brand-soft text-brand' : 'bg-neg-soft text-[#8E2F20]') }}" data-testid="kind-{{ $category->id }}">{{ ['saida' => 'Saída', 'entrada' => 'Entrada', 'ambas' => 'Entrada e saída', 'aporte' => 'Investimento'][$category->kind] }}</span>
                 <button type="button" wire:click="rename({{ $category->id }})" class="nf-chip">Renomear</button>
                 <select wire:model="moveTo.{{ $category->id }}" aria-label="Mover lançamentos para" class="nf-input !min-h-10 !w-36"><option value="">Mover para…</option>@foreach ($categories as $other)@if ($other->id !== $category->id)<option value="{{ $other->id }}">{{ $other->name }}</option>@endif @endforeach</select>
                 <button type="button" wire:click="remove({{ $category->id }})" class="nf-chip !text-neg">Remover</button>
@@ -17,7 +17,7 @@
 
     <form wire:submit="add" class="nf-card flex items-end gap-3 p-5" aria-label="Nova categoria">
         <div class="flex-1"><label for="newcat" class="nf-label">Nova categoria</label><input id="newcat" type="text" wire:model="newName" class="nf-input" /></div>
-        <div><label for="newkind" class="nf-label">Serve para</label><select id="newkind" wire:model="newKind" class="nf-input"><option value="saida">Saídas</option><option value="entrada">Entradas</option><option value="ambas">Entradas e saídas</option></select></div>
+        <div><label for="newkind" class="nf-label">Serve para</label><select id="newkind" wire:model="newKind" class="nf-input"><option value="saida">Saídas</option><option value="entrada">Entradas</option><option value="aporte">Investimentos</option><option value="ambas">Entradas e saídas</option></select></div>
         <button type="submit" class="nf-btn">Adicionar</button>
     </form>
 </div>

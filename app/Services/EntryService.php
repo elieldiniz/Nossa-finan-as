@@ -29,6 +29,10 @@ class EntryService
         $ownerId = (int) ($data['owner_id'] ?? $actor->id);
         $this->assertOwnerInCouple($actor, $ownerId);
 
+        if (! in_array($data['kind'] ?? null, [Entry::ENTRADA, Entry::SAIDA, Entry::APORTE], true)) {
+            throw new InvalidArgumentException('Escolha se é saída, entrada ou investimento.');
+        }
+
         if (($data['amount_cents'] ?? 0) <= 0) {
             throw new InvalidArgumentException('O valor precisa ser maior que zero.');
         }
@@ -37,9 +41,10 @@ class EntryService
             ?? throw new InvalidArgumentException('Escolha uma categoria.');
 
         if (! $category->fitsKind($data['kind'])) {
-            throw new InvalidArgumentException('Esta categoria não serve para '.($data['kind'] === 'entrada' ? 'entradas' : 'saídas').'.');
+            throw new InvalidArgumentException('Esta categoria não serve para '.['entrada' => 'entradas', 'saida' => 'saídas', 'aporte' => 'investimentos'][$data['kind']].'.');
         }
-        $cardId = isset($data['card_id']) ? $this->cardId($actor, (int) $data['card_id']) : null;
+        // Só saída passa por cartão: entrada e investimento nunca ficam ligados a um (senão sumiriam dos totais).
+        $cardId = ($data['kind'] === Entry::SAIDA && ! empty($data['card_id'])) ? $this->cardId($actor, (int) $data['card_id']) : null;
 
         return DB::transaction(function () use ($actor, $data, $month, $ownerId, $category, $cardId) {
             $paid = (bool) ($data['paid'] ?? false);

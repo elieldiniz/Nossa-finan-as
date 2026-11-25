@@ -6,7 +6,7 @@
         ['people', 'Pessoas', 'people'],
         ['vale', 'Vale', 'vale'],
         ['recurring', 'Recorrentes', 'repeat'],
-        ['goals', 'Metas e vencimentos', 'target'],
+        ['goals', 'Metas e investimentos', 'target'],
         ['charts', 'Gráficos', 'chart'],
         ['report', 'Relatório', 'pie'],
         ['categories', 'Categorias', 'tag'],

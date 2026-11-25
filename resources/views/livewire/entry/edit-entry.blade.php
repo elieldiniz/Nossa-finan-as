@@ -8,7 +8,7 @@
     <section class="nf-hero p-6 text-center">
         <p class="text-sm font-bold text-white/85">{{ $entry->name }}@if ($entry->installment_label) · parcela {{ $entry->installment_label }}@endif</p>
         <p class="mt-1 text-4xl font-extrabold">{{ $entry->kind === 'entrada' ? '+' : '−' }}{{ Money::format($entry->amount_cents) }}</p>
-        <p class="mt-2 text-xs font-bold text-white/85">{{ $entry->kind === 'entrada' ? 'Entrada' : 'Saída' }}@if ($entry->recurrence_id) · recorrente @endif · de {{ $entry->owner?->name }}</p>
+        <p class="mt-2 text-xs font-bold text-white/85">{{ ['entrada' => 'Entrada', 'saida' => 'Saída', 'aporte' => 'Investimento'][$entry->kind] }}@if ($entry->recurrence_id) · recorrente @endif · de {{ $entry->owner?->name }}</p>
     </section>
 
     @unless ($canEdit)
