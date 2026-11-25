@@ -16,7 +16,7 @@ use InvalidArgumentException;
  */
 class CategoryService
 {
-    public function add(User $actor, string $name): Category
+    public function add(User $actor, string $name, string $kind = Category::SAIDA): Category
     {
         Gate::forUser($actor)->authorize('create', Category::class);
 
@@ -25,7 +25,11 @@ class CategoryService
             throw new InvalidArgumentException('Já existe uma categoria com esse nome (ou o nome está vazio).');
         }
 
-        $category = new Category(['name' => $name, 'position' => (int) Category::max('position') + 1]);
+        if (! in_array($kind, [Category::SAIDA, Category::ENTRADA, Category::AMBAS], true)) {
+            throw new InvalidArgumentException('Escolha se a categoria é de saída, de entrada ou de ambas.');
+        }
+
+        $category = new Category(['name' => $name, 'kind' => $kind, 'position' => (int) Category::max('position') + 1]);
         $category->couple_id = $actor->couple_id;
         $category->save();
 
@@ -55,6 +59,10 @@ class CategoryService
 
         if ($inUse && ($moveTo === null || $moveTo->id === $category->id)) {
             throw new InvalidArgumentException('Esta categoria está em uso: escolha outra para receber os lançamentos.');
+        }
+
+        if ($inUse && $category->kind !== $moveTo->kind && $moveTo->kind !== Category::AMBAS) {
+            throw new InvalidArgumentException('A categoria de destino precisa servir para o mesmo tipo (entrada ou saída).');
         }
 
         DB::transaction(function () use ($category, $moveTo, $inUse) {

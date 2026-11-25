@@ -16,10 +16,10 @@
     @else
         <form wire:submit="save" class="nf-card flex flex-col gap-3 p-5">
             <div><label for="name" class="nf-label">Nome</label><input id="name" type="text" wire:model="name" class="nf-input" /></div>
-            <div><label for="amount" class="nf-label">Valor</label><input id="amount" type="text" inputmode="decimal" wire:model="amount" class="nf-input" /></div>
+            <div><label for="amount" class="nf-label">Valor</label><input id="amount" type="text" inputmode="decimal" wire:model="amount" x-data="moneyInput" x-on:blur="format($el)" class="nf-input" /></div>
             <div class="grid grid-cols-2 gap-3">
                 <div><label for="cat" class="nf-label">Categoria</label><select id="cat" wire:model="categoryId" class="nf-input">@foreach ($categories as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select></div>
-                <div><label for="card" class="nf-label">Pago com</label><select id="card" wire:model="cardId" class="nf-input"><option value="">Dinheiro / débito</option>@foreach ($cards as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select></div>
+                @if ($entry->kind === 'saida')<div><label for="card" class="nf-label">Pago com</label><select id="card" wire:model="cardId" class="nf-input"><option value="">Dinheiro / débito</option>@foreach ($cards as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select></div>@endif
             </div>
 
             @if ($entry->recurrence_id)

@@ -53,6 +53,40 @@ class EntryForm extends Component
 
     public ?string $error = null;
 
+    /** Troca de Saída para Entrada (e vice-versa): ajusta categoria e campos que só valem para gasto. */
+    public function updatedKind(): void
+    {
+        $this->resetValidation();
+        $this->error = null;
+
+        $fits = Category::forKind($this->kind)->whereKey($this->categoryId)->exists();
+        if (! $fits) {
+            // Para entrada já sugere "Salário"; para saída o usuário escolhe.
+            $this->categoryId = $this->kind === 'entrada' ? Category::where('name', 'Salário')->value('id') : null;
+        }
+
+        if ($this->kind === 'entrada') {
+            $this->cardId = null;
+            $this->joint = false;
+        }
+    }
+
+    public function updatedName(): void
+    {
+        $this->resetValidation('name');
+    }
+
+    public function updatedAmount(): void
+    {
+        $this->resetValidation('amount');
+        $this->error = null;
+    }
+
+    public function updatedCategoryId(): void
+    {
+        $this->resetValidation('categoryId');
+    }
+
     public function mount(): void
     {
         $this->ownerId = auth()->id();
@@ -62,6 +96,11 @@ class EntryForm extends Component
     public function save(EntryService $entries): mixed
     {
         $this->error = null;
+
+        if ($this->kind === 'entrada') {
+            $this->cardId = null; // entrada não passa por cartão nem entra no acerto do casal
+            $this->joint = false;
+        }
 
         $this->validate([
             'kind' => ['required', 'in:entrada,saida'],
@@ -105,7 +144,7 @@ class EntryForm extends Component
     public function render()
     {
         return view('livewire.entry.entry-form', [
-            'categories' => Category::orderBy('position')->get(),
+            'categories' => Category::forKind($this->kind)->orderBy('position')->get(),
             'cards' => Card::orderBy('name')->get(),
             'members' => User::where('couple_id', auth()->user()->couple_id)->orderBy('id')->get(),
         ]);

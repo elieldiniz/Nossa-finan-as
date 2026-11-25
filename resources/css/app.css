@@ -101,3 +101,6 @@ html[data-offline] [wire\:click]:not([wire\:click^='previousMonth']):not([wire\:
     opacity: .5;
     pointer-events: none;
 }
+
+/* O app é claro: caixas de seleção, rádios e barras de rolagem não herdam o modo escuro do sistema. */
+html { color-scheme: light; }

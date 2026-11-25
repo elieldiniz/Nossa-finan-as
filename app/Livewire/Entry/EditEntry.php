@@ -114,7 +114,7 @@ class EditEntry extends Component
     public function render()
     {
         return view('livewire.entry.edit-entry', [
-            'categories' => Category::orderBy('position')->get(),
+            'categories' => Category::forKind($this->entry->kind)->orderBy('position')->get(),
             'cards' => Card::orderBy('name')->get(),
             'canEdit' => Gate::allows('update', $this->entry),
         ]);

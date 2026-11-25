@@ -23,7 +23,7 @@
                 @else
                     @php $mine = $row['source'] === 'card' || (int) $row['owner_id'] === auth()->id(); @endphp
                     <button type="button" @if($mine && ! $readOnly) wire:click="{{ $row['source'] === 'card' ? "toggleInvoice({$row['id']})" : "togglePaid({$row['id']})" }}" @else disabled @endif
-                            role="checkbox" aria-checked="{{ $row['paid'] ? 'true' : 'false' }}" aria-label="Marcar como pago: {{ $row['name'] }}"
+                            role="checkbox" aria-checked="{{ $row['paid'] ? 'true' : 'false' }}" aria-label="{{ $row['signed'] >= 0 ? 'Marcar como recebido' : 'Marcar como pago' }}: {{ $row['name'] }}"
                             class="flex size-7 shrink-0 items-center justify-center rounded-full border-2 {{ $row['paid'] ? 'border-brand bg-brand text-white' : 'border-zinc-300' }} disabled:opacity-60">
                         @if ($row['paid']) <span aria-hidden="true">✓</span> @endif
                     </button>

@@ -35,6 +35,10 @@ class EntryService
 
         $category = Category::withoutGlobalScopes()->where('couple_id', $actor->couple_id)->find($data['category_id'] ?? 0)
             ?? throw new InvalidArgumentException('Escolha uma categoria.');
+
+        if (! $category->fitsKind($data['kind'])) {
+            throw new InvalidArgumentException('Esta categoria não serve para '.($data['kind'] === 'entrada' ? 'entradas' : 'saídas').'.');
+        }
         $cardId = isset($data['card_id']) ? $this->cardId($actor, (int) $data['card_id']) : null;
 
         return DB::transaction(function () use ($actor, $data, $month, $ownerId, $category, $cardId) {

@@ -15,6 +15,8 @@ class CategoriesPage extends Component
 {
     public string $newName = '';
 
+    public string $newKind = 'saida';
+
     /** @var array<int, string> */
     public array $names = [];
 
@@ -30,7 +32,7 @@ class CategoriesPage extends Component
 
     public function add(CategoryService $service): void
     {
-        $this->guarded(fn () => $service->add(auth()->user(), $this->newName));
+        $this->guarded(fn () => $service->add(auth()->user(), $this->newName, $this->newKind));
         $this->newName = '';
         $this->mount();
     }

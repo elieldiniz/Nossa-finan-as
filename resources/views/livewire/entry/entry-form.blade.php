@@ -6,13 +6,13 @@
     </header>
 
     <div role="tablist" aria-label="Tipo" class="flex rounded-full bg-line p-1">
-        <button type="button" role="tab" wire:click="$set('kind', 'saida')" aria-selected="{{ $kind === 'saida' ? 'true' : 'false' }}" class="min-h-11 flex-1 rounded-full text-sm font-bold {{ $kind === 'saida' ? 'bg-neg text-white' : 'text-muted' }}">Saída</button>
+        <button type="button" role="tab" wire:click="$set('kind', 'saida')" wire:key="tab-saida" aria-selected="{{ $kind === 'saida' ? 'true' : 'false' }}" class="min-h-11 flex-1 rounded-full text-sm font-bold {{ $kind === 'saida' ? 'bg-neg text-white' : 'text-muted' }}">Saída</button>
         <button type="button" role="tab" wire:click="$set('kind', 'entrada')" aria-selected="{{ $kind === 'entrada' ? 'true' : 'false' }}" class="min-h-11 flex-1 rounded-full text-sm font-bold {{ $kind === 'entrada' ? 'bg-pos text-white' : 'text-muted' }}">Entrada</button>
     </div>
 
     <div class="text-center">
         <label for="amount" class="nf-label">Valor</label>
-        <input id="amount" type="text" inputmode="decimal" wire:model="amount" placeholder="R$ 0,00" autocomplete="off" x-data x-on:input="$el.value = $el.value.replace(/[^\d.,R$ ]/g, '')"
+        <input id="amount" type="text" inputmode="decimal" wire:model="amount" placeholder="R$ 0,00" autocomplete="off" x-data="moneyInput" x-on:blur="format($el)"
                class="w-full bg-transparent text-center text-5xl font-extrabold tracking-tight {{ $kind === 'saida' ? 'text-neg' : 'text-pos' }} placeholder:text-zinc-300 focus:outline-none" />
         @error('amount') <p class="text-sm font-bold text-neg">{{ $message }}</p> @enderror
     </div>
@@ -30,24 +30,28 @@
 
     <div>
         <label for="name" class="nf-label">Nome</label>
-        <input id="name" type="text" wire:model="name" placeholder="Ex.: Mercado" class="nf-input" />
+        <input id="name" type="text" wire:model="name" placeholder="{{ $kind === 'entrada' ? 'Ex.: Salário de setembro' : 'Ex.: Mercado' }}" class="nf-input" />
         @error('name') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror
     </div>
 
     <div class="grid grid-cols-2 gap-3">
-        <div>
-            <label for="card" class="nf-label">Pago com</label>
-            <select id="card" wire:model="cardId" class="nf-input"><option value="">Dinheiro / débito</option>@foreach ($cards as $card)<option value="{{ $card->id }}">{{ $card->name }}</option>@endforeach</select>
-        </div>
-        <div>
-            <label for="owner" class="nf-label">De quem</label>
+        @if ($kind === 'saida')
+            <div>
+                <label for="card" class="nf-label">Pago com</label>
+                <select id="card" wire:model="cardId" class="nf-input"><option value="">Dinheiro / débito</option>@foreach ($cards as $card)<option value="{{ $card->id }}">{{ $card->name }}</option>@endforeach</select>
+            </div>
+        @endif
+        <div @class(['col-span-2' => $kind === 'entrada'])>
+            <label for="owner" class="nf-label">{{ $kind === 'entrada' ? 'Quem recebe' : 'De quem' }}</label>
             <select id="owner" wire:model="ownerId" class="nf-input">@foreach ($members as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach</select>
         </div>
     </div>
 
     <div class="flex flex-wrap gap-5">
-        <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model="paid" class="size-5 accent-brand" /> Já está pago</label>
-        <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model="joint" class="size-5 accent-brand" /> Gasto do casal (entra no acerto)</label>
+        <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model="paid" class="size-5 accent-brand" /> {{ $kind === 'entrada' ? 'Já recebido' : 'Já está pago' }}</label>
+        @if ($kind === 'saida')
+            <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model="joint" class="size-5 accent-brand" /> Gasto do casal (entra no acerto)</label>
+        @endif
     </div>
 
     <fieldset class="nf-card p-4">
@@ -63,7 +67,7 @@
         @if ($repeat !== 'none')
             <div class="mt-3 grid grid-cols-2 gap-3 rounded-2xl bg-ground p-3">
                 <div><span class="nf-label">Começa em</span><div class="nf-input flex items-center font-bold">{{ $this->monthDate()->translatedFormat('m/Y') }}</div></div>
-                <div><label for="day" class="nf-label">Cobra no dia</label><input id="day" type="number" min="1" max="31" wire:model="chargeDay" class="nf-input" /></div>
+                <div><label for="day" class="nf-label">{{ $kind === 'entrada' ? 'Recebe no dia' : 'Cobra no dia' }}</label><input id="day" type="number" min="1" max="31" wire:model="chargeDay" class="nf-input" /></div>
 
                 @if ($repeat === 'installments')
                     <div class="col-span-2"><label for="n" class="nf-label">Número de parcelas</label><input id="n" type="number" min="2" max="360" wire:model="installmentsTotal" class="nf-input" /></div>

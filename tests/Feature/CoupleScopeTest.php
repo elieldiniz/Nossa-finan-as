@@ -17,7 +17,7 @@ it('só enxerga registros do próprio casal', function () {
 
     $this->actingAs($c);
     expect(Entry::pluck('name')->all())->toBe(['do casal 2'])
-        ->and(Category::count())->toBe(10);
+        ->and(Category::count())->toBe(14);
 });
 
 it('sem usuário logado não enxerga nada', function () {
