@@ -9,7 +9,7 @@ const ASSETS = `${VERSION}-assets`;
 const PAGES = `${VERSION}-pages`;
 
 self.addEventListener('install', (event) => {
-    event.waitUntil(caches.open(ASSETS).then((cache) => cache.addAll(['/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'])).then(() => self.skipWaiting()));
+    event.waitUntil(caches.open(ASSETS).then((cache) => cache.addAll(['/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png'])).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {

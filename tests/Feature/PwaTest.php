@@ -38,3 +38,17 @@ it('a tela inicial sem login manda para o login e logada para o painel', functio
     [$eliel] = makeCouple();
     $this->actingAs($eliel)->get('/')->assertRedirect('/dashboard');
 });
+
+it('usa o ícone do app em todos os tamanhos (normal e maskable) e nos favicons', function () {
+    $manifest = json_decode(file_get_contents(public_path('manifest.webmanifest')), true);
+
+    expect(collect($manifest['icons'])->pluck('purpose')->unique()->sort()->values()->all())->toBe(['any', 'maskable']);
+
+    foreach (['icon-192.png' => 192, 'icon-512.png' => 512, 'icon-maskable-192.png' => 192, 'icon-maskable-512.png' => 512, 'apple-touch-icon.png' => 180, 'favicon-32.png' => 32] as $file => $side) {
+        [$w, $h] = getimagesize(public_path("icons/{$file}"));
+        expect([$w, $h])->toBe([$side, $side]);
+    }
+
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel)->get(route('dashboard'))->assertSee('/icons/favicon-32.png', false)->assertSee('/icons/apple-touch-icon.png', false);
+});
