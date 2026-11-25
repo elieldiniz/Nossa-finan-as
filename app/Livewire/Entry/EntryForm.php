@@ -68,6 +68,10 @@ class EntryForm extends Component
         if ($this->kind === 'entrada') {
             $this->cardId = null;
             $this->joint = false;
+
+            if ($this->repeat === 'installments') {
+                $this->repeat = 'none'; // entrada não é parcelada (parcelas a receber ficam em Pessoas)
+            }
         }
     }
 

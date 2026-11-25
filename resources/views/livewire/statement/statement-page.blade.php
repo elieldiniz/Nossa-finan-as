@@ -9,7 +9,7 @@
     </section>
 
     <div class="flex flex-wrap items-center gap-2">
-        @foreach (['all' => 'Todos', 'pending' => 'Pendentes', 'paid' => 'Pagos'] as $key => $label)
+        @foreach (['all' => 'Todos', 'pending' => 'Pendentes', 'paid' => 'Pagos e recebidos'] as $key => $label)
             <button type="button" wire:click="setFilter('{{ $key }}')" aria-pressed="{{ $filter === $key ? 'true' : 'false' }}" class="nf-chip {{ $filter === $key ? 'nf-chip-on' : '' }}">{{ $label }}</button>
         @endforeach
         <input type="search" wire:model.live.debounce.300ms="search" placeholder="Buscar por nome" aria-label="Buscar" class="nf-input !min-h-10 min-w-40 flex-1" />

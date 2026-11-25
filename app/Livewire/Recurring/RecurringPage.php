@@ -23,6 +23,8 @@ class RecurringPage extends Component
 {
     use WithMonthView;
 
+    public string $kind = 'saida'; // saida | entrada (assinatura/fixo ou salário/renda que se repete)
+
     public string $name = '';
 
     public string $amount = '';
@@ -41,6 +43,19 @@ class RecurringPage extends Component
 
     public ?string $error = null;
 
+    public function updatedKind(): void
+    {
+        $this->resetValidation();
+
+        if (! Category::forKind($this->kind)->whereKey($this->categoryId)->exists()) {
+            $this->categoryId = $this->kind === 'entrada' ? Category::where('name', 'Salário')->value('id') : null;
+        }
+
+        if ($this->kind === 'entrada') {
+            $this->cardId = null;
+        }
+    }
+
     public function save(EntryService $entries): void
     {
         $this->error = null;
@@ -55,8 +70,8 @@ class RecurringPage extends Component
 
         try {
             $entries->create(auth()->user(), [
-                'kind' => 'saida', 'name' => $this->name, 'amount_cents' => Money::parse($this->amount),
-                'month' => $this->monthDate()->toDateString(), 'category_id' => $this->categoryId, 'card_id' => $this->cardId,
+                'kind' => $this->kind, 'name' => $this->name, 'amount_cents' => Money::parse($this->amount),
+                'month' => $this->monthDate()->toDateString(), 'category_id' => $this->categoryId, 'card_id' => $this->kind === 'entrada' ? null : $this->cardId,
                 'repeat' => array_filter([
                     'frequency' => $this->frequency, 'charge_day' => $this->chargeDay,
                     'ends_on' => $this->endMode === 'date' ? $this->endsOn : null,
@@ -79,8 +94,9 @@ class RecurringPage extends Component
 
         return view('livewire.recurring.recurring-page', [
             'items' => $items->values(),
-            'total' => (int) $items->where('active', true)->sum(fn ($i) => $i['rec']->amount_cents),
-            'categories' => Category::orderBy('position')->get(),
+            'total' => (int) $items->where('active', true)->filter(fn ($i) => $i['rec']->kind === 'saida')->sum(fn ($i) => $i['rec']->amount_cents),
+            'incomeTotal' => (int) $items->where('active', true)->filter(fn ($i) => $i['rec']->kind === 'entrada')->sum(fn ($i) => $i['rec']->amount_cents),
+            'categories' => Category::forKind($this->kind)->orderBy('position')->get(),
             'cards' => Card::orderBy('name')->get(),
         ]);
     }

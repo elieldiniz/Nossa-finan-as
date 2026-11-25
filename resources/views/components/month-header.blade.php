@@ -3,7 +3,7 @@
     $me = auth()->user();
     $partner = $me->partner();
     $label = str($month->translatedFormat('F \d\e Y'))->ucfirst();
-    $options = [['nos', 'Nós'], ['eu', $me->name], ['par', $partner?->name ?? 'Par']];
+    $options = [['nos', 'Nós'], ['eu', $me->firstName()], ['par', $partner?->firstName() ?? 'Par']];
 @endphp
 <header class="mb-4">
     @if ($title)
@@ -32,7 +32,7 @@
 
     @if ($switcher && $view === 'par')
         <p class="mt-3 flex items-center gap-2 rounded-2xl bg-[#FFF1D6] px-4 py-2.5 text-sm font-semibold text-[#6B4600]" data-testid="readonly-badge">
-            Você está vendo os dados de {{ $partner?->name ?? 'seu par' }}. Somente leitura.
+            Você está vendo os dados de {{ $partner?->firstName() ?? 'seu par' }}. Somente leitura.
         </p>
     @endif
 </header>

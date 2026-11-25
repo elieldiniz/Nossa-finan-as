@@ -83,7 +83,7 @@ class GoalsPage extends Component
         $goals = Goal::all()->keyBy(fn (Goal $g) => $g->category_id ?? 0);
         $totalSpent = (int) $expenses->sum('amount_cents');
 
-        $categories = Category::orderBy('position')->get()->map(fn (Category $c) => [
+        $categories = Category::forKind(Category::SAIDA)->orderBy('position')->get()->map(fn (Category $c) => [
             'category' => $c,
             'spent' => $byCategory->get($c->id, 0),
             'goal' => $goals->get($c->id),

@@ -49,6 +49,12 @@ class User extends Authenticatable // implements MustVerifyEmail
         ];
     }
 
+    /** "Eliel Diniz" -> "Eliel" (para botões e saudações). */
+    public function firstName(): string
+    {
+        return Str::of($this->name)->trim()->before(' ')->toString();
+    }
+
     public function couple(): BelongsTo
     {
         return $this->belongsTo(Couple::class);

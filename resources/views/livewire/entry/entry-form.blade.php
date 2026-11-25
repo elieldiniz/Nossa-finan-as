@@ -57,7 +57,7 @@
     <fieldset class="nf-card p-4">
         <legend class="nf-label px-1">Repetir</legend>
         <div class="grid grid-cols-2 gap-2">
-            @foreach (['none' => 'Não repete', 'monthly' => 'Todo mês', 'yearly' => 'Todo ano', 'installments' => 'Parcelado'] as $value => $label)
+            @foreach (collect(['none' => 'Não repete', 'monthly' => 'Todo mês', 'yearly' => 'Todo ano', 'installments' => 'Parcelado'])->when($kind === 'entrada', fn ($c) => $c->except('installments')) as $value => $label)
                 <label class="flex min-h-11 items-center gap-2 rounded-2xl border-2 px-3 text-sm font-bold {{ $repeat === $value ? 'border-brand bg-brand-soft' : 'border-line' }}">
                     <input type="radio" wire:model.live="repeat" value="{{ $value }}" class="size-4 accent-brand" /> {{ $label }}
                 </label>

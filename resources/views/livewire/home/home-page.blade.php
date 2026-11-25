@@ -1,6 +1,6 @@
 @php use App\Support\Money; @endphp
 <div class="flex flex-col gap-4">
-    <x-month-header :month="$this->monthDate()" :view="$view" :title="'Olá, '.auth()->user()->name" />
+    <x-month-header :month="$this->monthDate()" :view="$view" :title="'Olá, '.auth()->user()->firstName()" />
 
     <div class="lg:grid lg:grid-cols-3 lg:gap-5">
         <div class="lg:col-span-2"><x-closing-banner :closing="$summary['closing']" /></div>
