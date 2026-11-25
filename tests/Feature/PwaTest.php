@@ -52,3 +52,11 @@ it('usa o ícone do app em todos os tamanhos (normal e maskable) e nos favicons'
     [$eliel] = makeCouple();
     $this->actingAs($eliel)->get(route('dashboard'))->assertSee('/icons/favicon-32.png', false)->assertSee('/icons/apple-touch-icon.png', false);
 });
+
+it('o ícone do app aparece no menu lateral e na tela de entrar, no lugar do logo antigo', function () {
+    [$eliel] = makeCouple();
+
+    $this->actingAs($eliel)->get(route('dashboard'))->assertSee('<img src="/icons/icon-192.png"', false)->assertDontSee('bg-lime"></span>', false);
+    auth()->logout();
+    $this->get('/login')->assertSee('<img src="/icons/icon-192.png"', false)->assertDontSee('Laravel Starter Kit');
+});

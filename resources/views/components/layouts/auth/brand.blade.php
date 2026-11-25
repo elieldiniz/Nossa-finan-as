@@ -11,7 +11,7 @@
                 <span aria-hidden="true" class="absolute right-10 top-40 size-24 rounded-full bg-white/10"></span>
 
                 <a href="{{ route('home') }}" wire:navigate class="relative block w-fit" aria-label="Nossa Finanças">
-                    <span class="relative inline-block h-10 w-[52px]"><span class="absolute left-0 top-0 size-10 rounded-full bg-white"></span><span class="absolute left-[18px] top-0 h-10 w-[34px] rounded-full bg-lime"></span></span>
+                    <x-app-logo-icon class="size-16 rounded-2xl shadow-lg" />
                 </a>
                 <h1 class="relative mt-7 text-4xl font-extrabold leading-[1.1] tracking-tight lg:text-5xl">Nossa<br>Finanças</h1>
                 <p class="relative mt-3 max-w-xs text-base text-white/90">O mês do casal em um só lugar.</p>

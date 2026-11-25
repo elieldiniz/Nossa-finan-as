@@ -18,7 +18,7 @@
 <aside aria-label="Menu lateral" data-testid="sidebar"
        class="hidden w-64 shrink-0 flex-col gap-1 bg-ink px-4 py-7 lg:flex lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
     <a href="{{ route('dashboard') }}" wire:navigate class="mb-5 flex items-center gap-2.5 px-2 text-lg font-extrabold text-white">
-        <span class="relative inline-block h-7 w-9"><span class="absolute left-0 top-0 size-7 rounded-full bg-white"></span><span class="absolute left-3 top-0 h-7 w-[22px] rounded-full bg-lime"></span></span>
+        <x-app-logo-icon class="size-10 rounded-xl" />
         Nossa Finanças
     </a>
 
