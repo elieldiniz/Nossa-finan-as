@@ -36,8 +36,8 @@ it('cada um é avisado das contas dele; a fatura do cartão vai para os dois', f
     $this->actingAs($ana);
     app(DueNotifier::class)->syncToday($ana);
 
-    expect($eliel->unreadNotifications->pluck('data.name')->sort()->values()->all())->toBe(['Do Eliel', 'Fatura Bradesco'])
-        ->and($ana->unreadNotifications->pluck('data.name')->sort()->values()->all())->toBe(['Da Ana', 'Fatura Bradesco']);
+    expect($eliel->unreadNotifications->pluck('data.name')->sort()->values()->all())->toBe(['Do Eliel', 'Fatura Bradesco (outubro)'])
+        ->and($ana->unreadNotifications->pluck('data.name')->sort()->values()->all())->toBe(['Da Ana', 'Fatura Bradesco (outubro)']);
 });
 
 it('conta paga por outro caminho some do sininho', function () {

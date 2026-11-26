@@ -54,7 +54,7 @@ class DueBills
                 $paid = CardInvoice::query()->where('card_id', $card->id)->where('month', $invoiceMonth->toDateString())->where('paid', true)->exists();
 
                 if ($total > 0) {
-                    $items[] = ['type' => 'invoice', 'id' => $card->id, 'month' => $invoiceMonth->format('Y-m'), 'name' => 'Fatura '.$card->name,
+                    $items[] = ['type' => 'invoice', 'id' => $card->id, 'month' => $invoiceMonth->format('Y-m'), 'name' => 'Fatura '.$card->name.' ('.$invoiceMonth->translatedFormat('F').')',
                         'due' => $due->toDateString(), 'amount' => $total, 'paid' => $paid, 'owner_id' => null];
                 }
             }
@@ -96,7 +96,7 @@ class DueBills
                 continue;
             }
 
-            $items[] = ['type' => 'invoice', 'id' => $card->id, 'month' => $invoiceMonth->format('Y-m'), 'name' => 'Fatura '.$card->name,
+            $items[] = ['type' => 'invoice', 'id' => $card->id, 'month' => $invoiceMonth->format('Y-m'), 'name' => 'Fatura '.$card->name.' ('.$invoiceMonth->translatedFormat('F').')',
                 'due' => $month->day(min($card->due_day, $month->daysInMonth))->toDateString(), 'amount' => $total, 'owner_id' => null,
                 'paid' => CardInvoice::query()->where('card_id', $card->id)->where('month', $invoiceMonth->toDateString())->where('paid', true)->exists()];
         }

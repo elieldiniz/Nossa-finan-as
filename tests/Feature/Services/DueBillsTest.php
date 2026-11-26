@@ -29,7 +29,7 @@ it('a fatura de setembro vence no dia cadastrado de outubro e aparece 7 dias ant
     $lista = contas($eliel, '2026-10-05');
 
     expect($lista)->toHaveCount(1)
-        ->and($lista[0])->toMatchArray(['type' => 'invoice', 'name' => 'Fatura Bradesco', 'due' => '2026-10-10', 'amount' => 60000, 'days_left' => 5, 'month' => '2026-09']);
+        ->and($lista[0])->toMatchArray(['type' => 'invoice', 'name' => 'Fatura Bradesco (setembro)', 'due' => '2026-10-10', 'amount' => 60000, 'days_left' => 5, 'month' => '2026-09']);
 });
 
 it('não aparece antes de 7 dias, depois do vencimento, sem "vence dia" ou com fatura paga', function () {
@@ -60,7 +60,7 @@ it('compras do cartão não aparecem uma a uma: só a fatura', function () {
 
     $lista = contas($eliel, '2026-10-05');
 
-    expect(array_column($lista, 'name'))->toBe(['Fatura Bradesco']);
+    expect(array_column($lista, 'name'))->toBe(['Fatura Bradesco (setembro)']);
 });
 
 it('lançamentos sem cartão com data de vencimento entram; pagos, entradas e fora da janela não', function () {
@@ -108,7 +108,7 @@ it('forMonth: fatura do mês anterior vence no dia do cartão do mês e mostra p
 
     $out = app(DueBills::class)->forMonth(CarbonImmutable::parse('2026-10-01'), ViewContext::for($eliel, 'nos'), CarbonImmutable::parse('2026-10-05'));
 
-    expect($out)->toHaveCount(1)->and($out[0])->toMatchArray(['name' => 'Fatura Bradesco', 'due' => '2026-10-10', 'paid' => false, 'overdue' => false, 'days_left' => 5]);
+    expect($out)->toHaveCount(1)->and($out[0])->toMatchArray(['name' => 'Fatura Bradesco (setembro)', 'due' => '2026-10-10', 'paid' => false, 'overdue' => false, 'days_left' => 5]);
 
     $out = app(DueBills::class)->forMonth(CarbonImmutable::parse('2026-10-01'), ViewContext::for($eliel, 'nos'), CarbonImmutable::parse('2026-10-12'));
     expect($out[0]['overdue'])->toBeTrue()->and($out[0]['days_left'])->toBe(-2);
