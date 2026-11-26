@@ -2,6 +2,9 @@
 
 use App\Livewire\Statement\StatementPage;
 use App\Models\Entry;
+use App\Models\ValeSpend;
+use App\Services\MonthSummary;
+use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 
 it('"50 mercado" cria saída de 50,00 em "Outros", não paga', function () {
@@ -132,4 +135,42 @@ it('na linha do cartão aparece o nome das compras sem abrir (com "e mais N" qua
     }
 
     Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertSeeHtml('data-testid="card-purchases">Mercado Livre, SHEIN e mais 2<');
+});
+
+it('o Extrato mostra o Vale (restante e gastos), fora do saldo, só na lista "Todos"', function () {
+    [$eliel] = makeCouple();
+    $vale = makeVale($eliel, 225000);
+    $spend = new ValeSpend(['vale_id' => $vale->id, 'owner_id' => $eliel->id, 'name' => 'Mercadão', 'amount_cents' => 45000, 'month' => '2026-09-01']);
+    $spend->couple_id = $eliel->couple_id;
+    $spend->save();
+    makeEntry($eliel, ['name' => 'Luz', 'amount_cents' => 10000]);
+
+    $tela = Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')
+        ->assertSeeHtml('data-testid="vale-sub">Mercadão<')->assertSee('R$ 1.800,00')->assertSee('restante · fora do saldo');
+
+    // o saldo do mês não muda por causa do vale (só a Luz de R$ 100,00 é saída)
+    expect(app(MonthSummary::class)->build($eliel, CarbonImmutable::parse('2026-09-01'))['closing']->expense)->toBe(10000);
+
+    $tela->call('toggleCard', 0)->assertSee('Mercadão')->assertSee('Gasto do vale')->assertSee('R$ 450,00');
+    $tela->call('setFilter', 'pending')->assertDontSee('fora do saldo');
+});
+
+it('sem vale cadastrado a linha não aparece', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertDontSee('fora do saldo');
+});
+
+it('cada linha do Extrato mostra o seu ícone (lançamento, cartão, vale)', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($eliel, ['name' => 'Luz']);
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'SHEIN']);
+    makeVale($eliel, 100000);
+
+    $html = Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->html();
+
+    // um <svg> por linha (lançamento, cartão e vale) dentro das caixinhas coloridas, além do lápis
+    expect(substr_count($html, 'rounded-2xl bg-'))->toBeGreaterThanOrEqual(3)
+        ->and(preg_match_all('/size-10 shrink-0[^>]*><svg/', $html))->toBe(3);
 });

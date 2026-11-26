@@ -86,7 +86,10 @@ class MonthSummary
         $amount = (int) $vales->sum('amount_cents');
         $spent = (int) $spends->sum('amount_cents');
 
-        return ['amount' => $amount, 'spent' => $spent, 'remaining' => ValeBalance::remaining($amount, $spends->pluck('amount_cents')->all())];
+        return [
+            'amount' => $amount, 'spent' => $spent, 'remaining' => ValeBalance::remaining($amount, $spends->pluck('amount_cents')->all()),
+            'spends' => $spends->sortBy('id')->map(fn (ValeSpend $x) => ['id' => $x->id, 'name' => $x->name, 'amount' => $x->amount_cents])->values()->all(),
+        ];
     }
 
     /**
@@ -95,7 +98,7 @@ class MonthSummary
      * @param  array<string, mixed>  $summary  resultado de build()
      * @return Collection<int, array<string, mixed>>
      */
-    public function rows(array $summary): Collection
+    public function rows(array $summary, bool $withVale = false): Collection
     {
         $rows = $summary['entries']->map(fn (Entry $e) => [
             'source' => 'entry', 'id' => $e->id, 'name' => $e->name,
@@ -115,6 +118,15 @@ class MonthSummary
                 $rows->push(['source' => 'card', 'id' => $c['card']->id, 'name' => 'Cartão '.$c['card']->name, 'sub' => $this->cardPurchases($lines),
                     'signed' => -$c['total'], 'kind' => 'saida', 'paid' => $c['paid'], 'owner_id' => null, 'recurring' => false, 'lines' => $lines]);
             }
+        }
+
+        // O vale é controlado à parte (não entra no saldo): no Extrato aparece como informação, com os gastos dentro.
+        $vale = $summary['vale'];
+        if ($withVale && ($vale['amount'] > 0 || $vale['spends'] !== [])) {
+            $rows->push(['source' => 'vale', 'id' => 0, 'name' => 'Vale', 'kind' => 'vale', 'paid' => false, 'owner_id' => null, 'recurring' => false,
+                'sub' => $vale['spends'] === [] ? 'Nenhum gasto ainda · fora do saldo' : implode(', ', array_slice(array_column($vale['spends'], 'name'), 0, 2)).(count($vale['spends']) > 2 ? ' e mais '.(count($vale['spends']) - 2) : ''),
+                'signed' => $vale['remaining'], 'lines' => array_map(fn ($x) => ['id' => $x['id'], 'name' => $x['name'], 'amount' => $x['amount'], 'sub' => 'Gasto do vale'], $vale['spends']),
+                'vale' => $vale]);
         }
 
         foreach ($summary['people'] as $p) {

@@ -126,7 +126,7 @@ class StatementPage extends Component
         $summary = $service->build(auth()->user(), $this->monthDate(), $this->view);
         $term = mb_strtolower(trim($this->search));
 
-        $rows = $service->rows($summary)
+        $rows = $service->rows($summary, withVale: $this->filter === 'all')
             ->when($this->filter === 'pending', fn ($r) => $r->where('paid', false))
             ->when($this->filter === 'paid', fn ($r) => $r->where('paid', true))
             ->when($term !== '', fn ($r) => $r->filter(fn ($row) => str_contains(mb_strtolower($row['name'].' '.$row['sub'].' '.collect($row['lines'] ?? [])->pluck('name')->implode(' ')), $term)))

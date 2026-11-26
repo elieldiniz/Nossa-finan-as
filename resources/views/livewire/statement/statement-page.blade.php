@@ -25,7 +25,7 @@
     <section class="nf-card px-4 py-2" aria-label="Lançamentos" data-testid="rows">
         @forelse ($rows as $row)
             <div class="nf-row" wire:key="row-{{ $row['source'] }}-{{ $row['id'] }}">
-                @if ($row['source'] === 'person')
+                @if (in_array($row['source'], ['person', 'vale'], true))
                     <span class="size-7 shrink-0"></span>
                 @else
                     @php $mine = $row['source'] === 'card' || (int) $row['owner_id'] === auth()->id(); @endphp
@@ -35,17 +35,17 @@
                         @if ($row['paid']) <span aria-hidden="true">✓</span> @endif
                     </button>
                 @endif
-                <span class="flex size-10 shrink-0 items-center justify-center rounded-2xl {{ ($row['kind'] ?? '') === 'aporte' ? 'bg-brand-soft text-brand' : ($row['signed'] >= 0 ? 'bg-pos-soft text-pos' : 'bg-neg-soft text-neg') }}"><x-nav.icon :name="$row['source'] === 'card' ? 'card' : ($row['source'] === 'person' ? 'people' : (($row['kind'] ?? '') === 'aporte' ? 'chart' : 'list'))" class="size-5" /></span>
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-2xl {{ in_array($row['kind'] ?? '', ['aporte', 'vale'], true) ? 'bg-brand-soft text-brand' : ($row['signed'] >= 0 ? 'bg-pos-soft text-pos' : 'bg-neg-soft text-neg') }}"><x-nav.icon :name="$row['source'] === 'card' ? 'card' : ($row['source'] === 'vale' ? 'vale' : ($row['source'] === 'person' ? 'people' : (($row['kind'] ?? '') === 'aporte' ? 'chart' : 'list')))" class="size-5" /></span>
                 <span class="min-w-0 flex-1">
                     @if ($row['source'] === 'entry')
                         <a href="{{ route('entry.show', $row['id']) }}" wire:navigate class="block truncate text-sm font-bold">{{ $row['name'] }}</a>
-                    @elseif ($row['source'] === 'card')
+                    @elseif (in_array($row['source'], ['card', 'vale'], true))
                         <button type="button" wire:click="toggleCard({{ $row['id'] }})" aria-expanded="{{ in_array($row['id'], $openCards, true) ? 'true' : 'false' }}" data-testid="card-toggle"
                                 class="flex max-w-full items-center gap-1 text-left text-sm font-bold"><span class="truncate">{{ $row['name'] }}</span><span aria-hidden="true" class="text-xs text-brand">{{ in_array($row['id'], $openCards, true) ? '▴' : '▾' }}</span></button>
                     @else
                         <span class="block truncate text-sm font-bold">{{ $row['name'] }}</span>
                     @endif
-                    <span class="block truncate text-xs text-muted" data-testid="{{ $row['source'] === 'card' ? 'card-purchases' : 'row-sub' }}">{{ $row['sub'] }}</span>
+                    <span class="block truncate text-xs text-muted" data-testid="{{ $row['source'] === 'card' ? 'card-purchases' : ($row['source'] === 'vale' ? 'vale-sub' : 'row-sub') }}">{{ $row['sub'] }}</span>
                 </span>
                 @if ($row['source'] === 'entry')
                     <a href="{{ route('entry.show', $row['id']) }}" wire:navigate aria-label="Editar {{ $row['name'] }}" data-testid="edit-link" class="flex size-8 shrink-0 items-center justify-center rounded-full text-muted">
@@ -53,18 +53,20 @@
                     </a>
                 @endif
                 <span class="text-right">
-                    <span class="block text-sm font-extrabold {{ $row['signed'] >= 0 ? 'text-pos' : '' }}">{{ Money::signed($row['signed']) }}</span>
-                    @if ($row['source'] !== 'person')
+                    <span class="block text-sm font-extrabold {{ $row['source'] !== 'vale' && $row['signed'] >= 0 ? 'text-pos' : '' }}">{{ $row['source'] === 'vale' ? Money::format($row['signed']) : Money::signed($row['signed']) }}</span>
+                    @if ($row['source'] === 'vale')
+                        <span class="text-xs font-bold text-brand" data-testid="status">restante · fora do saldo</span>
+                    @elseif ($row['source'] !== 'person')
                         @php $kindRow = ($row['kind'] ?? '') === 'aporte' ? ['Aplicado', 'A aplicar'] : ($row['signed'] >= 0 ? ['Recebido', 'A receber'] : ['Pago', 'A pagar']); @endphp
                         <span class="text-xs font-bold {{ $row['paid'] ? 'text-brand' : 'text-[#8A5A00]' }}" data-testid="status">{{ $row['paid'] ? '✓ '.$kindRow[0] : $kindRow[1] }}</span>
                     @endif
                 </span>
             </div>
-            @if ($row['source'] === 'card' && in_array($row['id'], $openCards, true))
+            @if (in_array($row['source'], ['card', 'vale'], true) && in_array($row['id'], $openCards, true))
                 <div class="mb-2 ml-10 rounded-2xl bg-ground px-3 py-1" data-testid="card-lines" wire:key="lines-{{ $row['id'] }}">
                     @foreach ($row['lines'] as $line)
                         <div class="flex items-center justify-between gap-3 border-b border-white py-2 last:border-0" data-testid="card-line">
-                            <span class="min-w-0"><a href="{{ route('entry.show', $line['id']) }}" wire:navigate class="block truncate text-sm font-bold">{{ $line['name'] }}</a><span class="text-xs text-muted">{{ $line['sub'] }}</span></span>
+                            <span class="min-w-0">@if ($row['source'] === 'vale')<a href="{{ route('vale') }}" wire:navigate class="block truncate text-sm font-bold">{{ $line['name'] }}</a>@else<a href="{{ route('entry.show', $line['id']) }}" wire:navigate class="block truncate text-sm font-bold">{{ $line['name'] }}</a>@endif<span class="text-xs text-muted">{{ $line['sub'] }}</span></span>
                             <span class="text-sm font-bold">{{ Money::format($line['amount']) }}</span>
                         </div>
                     @endforeach
