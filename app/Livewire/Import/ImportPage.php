@@ -44,6 +44,9 @@ class ImportPage extends Component
     /** "Vence dia" de cada cartão da planilha (índice do cartão => dia). @var array<int, int|string|null> */
     public array $dueDays = [];
 
+    /** Cópia local do arquivo enviado (não vai para o navegador). */
+    private ?string $localPath = null;
+
     public ?string $error = null;
 
     public ?string $done = null;
@@ -67,7 +70,7 @@ class ImportPage extends Component
         }
 
         try {
-            $this->sheets = $parser->sheetNames($this->file->getRealPath());
+            $this->sheets = $parser->sheetNames($this->localFile());
             $this->sheet = $this->sheets[0] ?? null;
             $this->suggestMonth($parser);
         } catch (InvalidImportFile $e) {
@@ -85,7 +88,7 @@ class ImportPage extends Component
     private function suggestMonth(OrcMesImport $parser): void
     {
         try {
-            $detected = $parser->parse($this->file->getRealPath(), $this->sheet)->detectedMonth;
+            $detected = $parser->parse($this->localFile(), $this->sheet)->detectedMonth;
         } catch (InvalidImportFile) {
             return;
         }
@@ -111,7 +114,7 @@ class ImportPage extends Component
         ]);
 
         try {
-            $payload = $parser->parse($this->file->getRealPath(), $this->sheet);
+            $payload = $parser->parse($this->localFile(), $this->sheet);
         } catch (InvalidImportFile $e) {
             $this->error = $e->getMessage();
 
@@ -161,6 +164,20 @@ class ImportPage extends Component
         $this->file = null;
         $this->sheets = [];
         $this->sheet = null;
+    }
+
+    /**
+     * Caminho local do arquivo enviado. Na hospedagem o envio pode ir para um armazenamento na nuvem (sem caminho local),
+     * então o conteúdo é lido do arquivo enviado e gravado num arquivo temporário do servidor.
+     */
+    private function localFile(): string
+    {
+        if ($this->localPath === null || ! is_file($this->localPath)) {
+            $this->localPath = tempnam(sys_get_temp_dir(), 'orc').'.xlsx';
+            file_put_contents($this->localPath, $this->file->get());
+        }
+
+        return $this->localPath;
     }
 
     private function monthDate(): CarbonImmutable

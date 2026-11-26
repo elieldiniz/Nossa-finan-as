@@ -68,7 +68,7 @@ class OfxPage extends Component
         $this->validate(['file' => ['file', 'max:2048', 'extensions:ofx']], ['file.extensions' => 'O arquivo precisa ser um extrato .ofx.', 'file.max' => 'O arquivo é grande demais (máximo 2 MB).']);
 
         try {
-            $statement = $parser->parse((string) file_get_contents($this->file->getRealPath()));
+            $statement = $parser->parse((string) $this->file->get());
         } catch (InvalidImportFile $e) {
             $this->error = $e->getMessage();
 
