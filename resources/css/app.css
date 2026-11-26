@@ -104,3 +104,108 @@ html[data-offline] [wire\:click]:not([wire\:click^='previousMonth']):not([wire\:
 
 /* O app é claro: caixas de seleção, rádios e barras de rolagem não herdam o modo escuro do sistema. */
 html { color-scheme: light; }
+
+
+/* ===== Interações de todo o app: cursor, hover (só com mouse), toque e foco ===== */
+:where(button, [role='button'], a[href], select, summary, label:has(input[type='checkbox'], input[type='radio'])) {
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: default;
+}
+
+:where(button, a[href], [role='tab'], .nf-card, .nf-input) {
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .2s ease, transform .15s ease;
+}
+
+/* teclado: o mesmo anel verde em tudo que dá para tocar */
+:where(button, a[href], [role='tab'], select, summary):focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+}
+
+/* toque/clique: o botão "afunda" um pouco */
+:where(.nf-btn, .nf-btn-ghost, .nf-chip, [role='tab'], .rounded-full.bg-white):not(:disabled):active {
+    transform: scale(.97);
+}
+
+@media (hover: hover) {
+    .nf-btn:not(:disabled):hover {
+        background: var(--color-brand-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 16px 28px rgba(20, 97, 79, .38);
+    }
+
+    .nf-btn:not(:disabled):active {
+        transform: scale(.97);
+    }
+
+    .nf-btn-ghost:hover {
+        border-color: var(--color-brand);
+        background: var(--color-brand-soft);
+        color: var(--color-brand);
+    }
+
+    .nf-chip:not(:disabled):hover {
+        border-color: var(--color-brand);
+        background: var(--color-brand-soft);
+        color: var(--color-brand);
+    }
+
+    .nf-chip.nf-chip-on:hover {
+        border-color: #20392f;
+        background: #20392f;
+        color: #fff;
+    }
+
+    /* abas (Saída/Entrada/Investimento, Nós/Eliel/Ana, períodos) que não estão ativas */
+    [role='tab'][aria-selected='false']:hover {
+        background: rgba(255, 255, 255, .75);
+        color: var(--color-ink);
+    }
+
+    [role='tab'][aria-selected='true']:hover {
+        filter: brightness(1.08);
+    }
+
+    /* botões redondos brancos: voltar/fechar, mês anterior/próximo */
+    :where(a, button).rounded-full.bg-white:hover {
+        background: var(--color-brand-soft);
+        color: var(--color-brand);
+    }
+
+    /* linhas e cartões clicáveis */
+    a.nf-row:hover,
+    button.nf-row:hover {
+        background: var(--color-ground);
+    }
+
+    a.nf-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(18, 33, 28, .05), 0 14px 32px rgba(18, 33, 28, .12);
+    }
+
+    .nf-row > button:not(:disabled):hover {
+        border-color: var(--color-brand);
+    }
+
+    .nf-input:hover:not(:focus) {
+        border-color: var(--color-brand);
+    }
+
+    /* barra de baixo e botão + */
+    a[class*='-mt-7']:hover {
+        background: var(--color-brand-dark);
+        transform: scale(1.06);
+    }
+
+    a.flex-col:hover {
+        color: var(--color-brand);
+    }
+
+    /* avisos de erro */
+    [data-testid='toast'] button:hover {
+        filter: brightness(.92);
+    }
+}
