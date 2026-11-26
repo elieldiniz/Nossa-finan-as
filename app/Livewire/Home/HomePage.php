@@ -26,6 +26,34 @@ class HomePage extends Component
     use WithMonthView;
 
     /** "Marcar pago" nas contas a vencer: lançamento (só o dono) ou fatura do cartão (compartilhada). */
+    /** Última conta marcada como paga aqui, para o botão "Desfazer". */
+    public ?array $undo = null;
+
+    public function undoPay(EntryService $entries): void
+    {
+        if ($this->undo === null) {
+            return;
+        }
+
+        if ($this->undo['type'] === 'invoice') {
+            $card = Card::findOrFail($this->undo['id']);
+            Gate::authorize('update', $card);
+            $invoice = CardInvoice::where('card_id', $card->id)->where('month', $this->undo['month'].'-01')->first();
+            $invoice?->update(['paid' => false, 'paid_at' => null]);
+        } else {
+            $entry = Entry::findOrFail($this->undo['id']);
+            Gate::authorize('update', $entry);
+            $entries->setPaid(auth()->user(), $entry, false);
+        }
+
+        $this->undo = null;
+    }
+
+    public function dismissUndo(): void
+    {
+        $this->undo = null;
+    }
+
     public function payBill(string $type, int $id, ?string $month, EntryService $entries): void
     {
         if ($type === 'invoice') {
@@ -37,6 +65,7 @@ class HomePage extends Component
             $invoice->paid = true;
             $invoice->paid_at = now();
             $invoice->save();
+            $this->undo = ['type' => 'invoice', 'id' => $card->id, 'month' => $month, 'name' => 'Fatura '.$card->name];
 
             return;
         }
@@ -44,6 +73,7 @@ class HomePage extends Component
         $entry = Entry::findOrFail($id);
         Gate::authorize('update', $entry);
         $entries->setPaid(auth()->user(), $entry, true);
+        $this->undo = ['type' => 'entry', 'id' => $entry->id, 'month' => null, 'name' => $entry->name];
     }
 
     public function render()

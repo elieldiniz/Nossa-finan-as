@@ -24,6 +24,9 @@ class StatementPage extends Component
 
     public string $filter = 'all'; // all | pending | paid
 
+    /** Frase que explica o que acabou de acontecer ao marcar/desmarcar. */
+    public ?string $notice = null;
+
     public string $search = '';
 
     public string $quick = '';
@@ -71,6 +74,17 @@ class StatementPage extends Component
         Gate::authorize('update', $entry);
 
         $entries->setPaid(auth()->user(), $entry, ! $entry->paid);
+
+        [$feito, $pendente] = match (true) {
+            $entry->kind === Entry::ENTRADA => ['recebida', 'a receber'],
+            $entry->kind === Entry::APORTE => ['aplicado', 'a aplicar'],
+            default => ['paga', 'a pagar'],
+        };
+
+        $this->notice = $entry->paid
+            ? "“{$entry->name}” marcada como {$feito} ✓. Para desfazer, toque no ✓ de novo."
+            : "“{$entry->name}” voltou para “{$pendente}”."
+                .($entry->kind === Entry::SAIDA && $entry->due_on ? ' Se o vencimento estiver próximo, ela volta para Contas a vencer no Início.' : '');
     }
 
     public function toggleInvoice(int $cardId): void
@@ -83,6 +97,15 @@ class StatementPage extends Component
         $invoice->paid = ! $invoice->paid;
         $invoice->paid_at = $invoice->paid ? now() : null;
         $invoice->save();
+
+        $this->notice = $invoice->paid
+            ? "Fatura do {$card->name} marcada como paga ✓. Para desfazer, toque no ✓ de novo."
+            : "Fatura do {$card->name} voltou para “a pagar”. Se o vencimento estiver próximo, ela volta para Contas a vencer no Início.";
+    }
+
+    public function dismissNotice(): void
+    {
+        $this->notice = null;
     }
 
     public function render()

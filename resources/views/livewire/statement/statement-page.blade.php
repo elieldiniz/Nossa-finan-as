@@ -15,6 +15,13 @@
         <input type="search" wire:model.live.debounce.300ms="search" placeholder="Buscar por nome" aria-label="Buscar" class="nf-input !min-h-10 min-w-40 flex-1" />
     </div>
 
+    @if ($notice)
+        <div role="status" class="flex items-start justify-between gap-3 rounded-2xl bg-brand-soft px-4 py-3 text-sm font-semibold text-brand" data-testid="notice">
+            <span>{{ $notice }}</span>
+            <button type="button" wire:click="dismissNotice" aria-label="Fechar aviso" class="shrink-0 text-base font-extrabold">✕</button>
+        </div>
+    @endif
+
     <section class="nf-card px-4 py-2" aria-label="Lançamentos" data-testid="rows">
         @forelse ($rows as $row)
             <div class="nf-row" wire:key="row-{{ $row['source'] }}-{{ $row['id'] }}">
@@ -37,7 +44,13 @@
                     @endif
                     <span class="text-xs text-muted">{{ $row['sub'] }}</span>
                 </span>
-                <span class="text-sm font-extrabold {{ $row['signed'] >= 0 ? 'text-pos' : '' }}">{{ Money::signed($row['signed']) }}</span>
+                <span class="text-right">
+                    <span class="block text-sm font-extrabold {{ $row['signed'] >= 0 ? 'text-pos' : '' }}">{{ Money::signed($row['signed']) }}</span>
+                    @if ($row['source'] !== 'person')
+                        @php $kindRow = ($row['kind'] ?? '') === 'aporte' ? ['Aplicado', 'A aplicar'] : ($row['signed'] >= 0 ? ['Recebido', 'A receber'] : ['Pago', 'A pagar']); @endphp
+                        <span class="text-xs font-bold {{ $row['paid'] ? 'text-brand' : 'text-[#8A5A00]' }}" data-testid="status">{{ $row['paid'] ? '✓ '.$kindRow[0] : $kindRow[1] }}</span>
+                    @endif
+                </span>
             </div>
         @empty
             <p class="py-6 text-center text-sm text-muted">Nenhum lançamento por aqui.</p>

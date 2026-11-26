@@ -62,3 +62,23 @@ it('na visão do par não dá para lançar rápido', function () {
 
     expect(Entry::withoutGlobalScopes()->count())->toBe(0);
 });
+
+it('o Extrato mostra a palavra do status e explica o que aconteceu ao marcar e desmarcar', function () {
+    [$eliel] = makeCouple();
+    $conta = makeEntry($eliel, ['name' => 'Luz', 'due_on' => '2026-09-20']);
+
+    $tela = Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')
+        ->assertSeeHtml('data-testid="status">A pagar<');
+
+    $tela->call('togglePaid', $conta->id)->assertSeeHtml('data-testid="status">✓ Pago<')->assertSee('“Luz” marcada como paga ✓')->assertSee('Para desfazer, toque no ✓ de novo');
+
+    $tela->call('togglePaid', $conta->id)->assertSeeHtml('data-testid="status">A pagar<')->assertSee('voltou para “a pagar”')->assertSee('volta para Contas a vencer');
+});
+
+it('entrada e investimento usam palavras próprias', function () {
+    [$eliel] = makeCouple();
+    makeEntry($eliel, ['kind' => 'entrada', 'name' => 'Salário', 'category_id' => categoryOf($eliel->couple_id, 'Salário')->id]);
+    makeEntry($eliel, ['kind' => 'aporte', 'name' => 'CDB', 'category_id' => categoryOf($eliel->couple_id, 'Renda fixa')->id, 'paid' => true]);
+
+    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertSee('A receber')->assertSee('✓ Aplicado');
+});

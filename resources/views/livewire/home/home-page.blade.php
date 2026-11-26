@@ -29,6 +29,15 @@
 
     <section class="nf-card p-5" aria-label="Contas a vencer" data-testid="due-bills">
         <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Contas a vencer</h2><span class="text-xs text-muted">próximos 7 dias</span></div>
+        @if ($undo)
+            <div role="status" class="mt-2 rounded-2xl bg-brand-soft px-4 py-3 text-sm font-semibold text-brand" data-testid="undo">
+                <p>“{{ $undo['name'] }}” marcada como paga ✓. Ela agora aparece no Extrato com ✓ (tocar no ✓ lá desfaz).</p>
+                <div class="mt-2 flex gap-2">
+                    <button type="button" wire:click="undoPay" class="nf-chip !min-h-9 !px-3 !text-xs !text-brand" data-testid="undo-button">Desfazer</button>
+                    <button type="button" wire:click="dismissUndo" class="nf-chip !min-h-9 !px-3 !text-xs">OK</button>
+                </div>
+            </div>
+        @endif
         @forelse ($due as $bill)
             <div class="nf-row" wire:key="bill-{{ $bill['type'] }}-{{ $bill['id'] }}-{{ $bill['month'] }}" data-testid="bill">
                 <span class="flex size-10 shrink-0 items-center justify-center rounded-2xl {{ $bill['days_left'] <= 1 ? 'bg-neg-soft text-neg' : 'bg-[#FFF1D6] text-[#6B4600]' }}"><x-nav.icon :name="$bill['type'] === 'invoice' ? 'card' : 'list'" class="size-5" /></span>
