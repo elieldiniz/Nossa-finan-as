@@ -5,6 +5,7 @@ namespace App\Livewire\Entry;
 use App\Models\Card;
 use App\Models\Category;
 use App\Models\Entry;
+use App\Models\Recurrence;
 use App\Services\EntryService;
 use App\Services\RecurrenceScopeService;
 use App\Support\Money;
@@ -35,6 +36,22 @@ class EditEntry extends Component
 
     public bool $confirmAll = false;
 
+    public ?string $dueOn = null;
+
+    public bool $paid = false;
+
+    /** Mês do lançamento (Y-m): só muda em lançamentos que não são recorrentes. */
+    public string $month = '';
+
+    // regra da conta recorrente (vale para a conta toda)
+    public ?int $chargeDay = null;
+
+    public string $endMode = 'never'; // never | date
+
+    public ?string $endsOn = null;
+
+    public ?int $installmentsTotal = null;
+
     public ?string $error = null;
 
     public function mount(Entry $entry): void
@@ -46,6 +63,22 @@ class EditEntry extends Component
         $this->amount = Money::format($entry->amount_cents);
         $this->categoryId = $entry->category_id;
         $this->cardId = $entry->card_id;
+        $this->dueOn = $entry->due_on?->toDateString();
+        $this->paid = (bool) $entry->paid;
+        $this->month = $entry->month->format('Y-m');
+
+        if ($entry->recurrence_id !== null) {
+            $recurrence = Recurrence::withoutGlobalScopes()->where('couple_id', $entry->couple_id)->find($entry->recurrence_id);
+            $this->chargeDay = $recurrence?->charge_day;
+            $this->installmentsTotal = $recurrence?->installments_total;
+            $this->endsOn = $recurrence?->ends_on?->toDateString();
+            $this->endMode = $this->endsOn ? 'date' : 'never';
+        }
+    }
+
+    public function isInstallment(): bool
+    {
+        return $this->installmentsTotal !== null;
     }
 
     public function save(EntryService $entries, RecurrenceScopeService $scopes): mixed
@@ -53,7 +86,15 @@ class EditEntry extends Component
         Gate::authorize('update', $this->entry);
         $this->error = null;
 
-        $this->validate(['name' => ['required', 'string', 'max:255'], 'categoryId' => ['required', 'integer']]);
+        $this->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'categoryId' => ['required', 'integer'],
+            'dueOn' => ['nullable', 'date'],
+            'month' => ['required', 'date_format:Y-m'],
+            'chargeDay' => ['nullable', 'integer', 'min:1', 'max:31'],
+            'installmentsTotal' => ['nullable', 'integer', 'min:2', 'max:360'],
+            'endsOn' => ['nullable', 'date'],
+        ], [], ['dueOn' => 'vencimento', 'month' => 'mês', 'chargeDay' => 'dia de cobrança', 'installmentsTotal' => 'número de parcelas', 'endsOn' => 'data final']);
 
         try {
             $changes = [
@@ -67,11 +108,22 @@ class EditEntry extends Component
                 throw new InvalidArgumentException('O valor precisa ser maior que zero.');
             }
 
+            $single = [
+                'due_on' => $this->entry->kind === Entry::SAIDA ? ($this->dueOn ?: null) : null,
+                'paid' => $this->paid,
+                'paid_by' => $this->paid ? ($this->entry->paid ? $this->entry->paid_by : auth()->id()) : null,
+            ];
+
             if ($this->entry->recurrence_id !== null) {
                 $this->guardScope();
-                $scopes->update(auth()->user(), $this->entry, $changes, $this->scope);
+                $scopes->update(auth()->user(), $this->entry, $changes + $single, $this->scope);
+
+                $scopes->reschedule(auth()->user(), $this->entry->refresh(), array_filter([
+                    'charge_day' => $this->chargeDay,
+                    'installments_total' => $this->installmentsTotal,
+                ], fn ($v) => $v !== null) + ['ends_on' => $this->isInstallment() || $this->endMode !== 'date' ? null : $this->endsOn]);
             } else {
-                $entries->update(auth()->user(), $this->entry, $changes);
+                $entries->update(auth()->user(), $this->entry, $changes + $single + ['month' => $this->month.'-01']);
             }
         } catch (InvalidArgumentException $e) {
             $this->error = $e->getMessage();
@@ -79,7 +131,7 @@ class EditEntry extends Component
             return null;
         }
 
-        return $this->redirectRoute('statement', ['m' => $this->entry->month->format('Y-m')], navigate: true);
+        return $this->redirectRoute('statement', ['m' => $this->entry->fresh()->month->format('Y-m')], navigate: true);
     }
 
     public function delete(EntryService $entries, RecurrenceScopeService $scopes): mixed

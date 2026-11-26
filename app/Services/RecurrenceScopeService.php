@@ -25,19 +25,63 @@ class RecurrenceScopeService
 
     private const EDITABLE = ['name', 'amount_cents', 'category_id', 'card_id', 'joint'];
 
+    /** Só fazem sentido para um mês específico (vencimento e pago). */
+    private const ONLY_THIS = ['due_on', 'paid', 'paid_by'];
+
     public function update(User $actor, Entry $entry, array $changes, string $scope): void
     {
         Gate::forUser($actor)->authorize('update', $entry);
         $recurrence = $this->recurrenceOf($entry);
+        $onlyThis = array_intersect_key($changes, array_flip(self::ONLY_THIS));
         $changes = array_intersect_key($changes, array_flip(self::EDITABLE));
 
-        DB::transaction(function () use ($entry, $recurrence, $changes, $scope) {
+        DB::transaction(function () use ($entry, $recurrence, $changes, $onlyThis, $scope) {
             match ($scope) {
-                self::THIS => $entry->update($changes),
+                self::THIS => $entry->update($changes + $onlyThis),
                 self::FOLLOWING => $this->updateFollowing($entry, $recurrence, $changes),
                 self::ALL => $this->updateAll($recurrence, $changes),
                 default => throw new InvalidArgumentException("Escopo desconhecido: {$scope}"),
             };
+        });
+    }
+
+    /**
+     * Muda a regra da conta toda (dia de cobrança, data final, número de parcelas) e acerta os meses:
+     * meses que deixam de existir e ainda não foram pagos são removidos; os novos são criados; vencimentos e
+     * "parcela x/y" são recalculados. Meses já pagos nunca são apagados.
+     *
+     * @param  array{charge_day?: ?int, ends_on?: ?string, installments_total?: ?int}  $schedule
+     */
+    public function reschedule(User $actor, Entry $entry, array $schedule): void
+    {
+        Gate::forUser($actor)->authorize('update', $entry);
+        $recurrence = $this->recurrenceOf($entry);
+        $values = array_intersect_key($schedule, array_flip(['charge_day', 'ends_on', 'installments_total']));
+
+        $dayChanged = isset($values['charge_day']) && $values['charge_day'] !== $recurrence->charge_day;
+
+        DB::transaction(function () use ($recurrence, $values, $dayChanged) {
+            $recurrence->fill($values);
+            $rule = $recurrence->schedule(); // valida a regra (ex.: parcelado precisa de nº de parcelas)
+            $recurrence->save();
+
+            foreach (Entry::withTrashed()->where('recurrence_id', $recurrence->id)->get() as $occurrence) {
+                $y = $occurrence->month->year;
+                $m = $occurrence->month->month;
+
+                if (! $rule->occursIn($y, $m)) {
+                    if (! $occurrence->paid) {
+                        $occurrence->forceDelete();
+                    }
+
+                    continue;
+                }
+
+                // o vencimento só é recalculado quando o dia de cobrança mudou (senão preserva ajustes feitos num mês)
+                $occurrence->update(['installment_label' => $rule->installmentLabel($y, $m)] + ($dayChanged ? ['due_on' => $rule->dateIn($y, $m)?->toDateString() ?? $occurrence->due_on] : []));
+            }
+
+            app(OpenMonthService::class)->fillRecurrence($recurrence);
         });
     }
 

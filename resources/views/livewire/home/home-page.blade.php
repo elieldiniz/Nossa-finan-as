@@ -33,7 +33,7 @@
         @forelse ($pendentes as $bill)
             <div class="nf-row" wire:key="bill-{{ $bill['type'] }}-{{ $bill['id'] }}-{{ $bill['month'] }}" data-testid="bill">
                 <span class="flex size-10 shrink-0 items-center justify-center rounded-2xl {{ $bill['overdue'] || ($bill['days_left'] !== null && $bill['days_left'] <= 1) ? 'bg-neg-soft text-neg' : 'bg-[#FFF1D6] text-[#6B4600]' }}"><x-nav.icon :name="$bill['type'] === 'invoice' ? 'card' : 'list'" class="size-5" /></span>
-                <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold">{{ $bill['name'] }}</span>
+                <span class="min-w-0 flex-1">@if ($bill['type'] === 'entry')<a href="{{ route('entry.show', $bill['id']) }}" wire:navigate class="block truncate text-sm font-bold" data-testid="bill-edit">{{ $bill['name'] }}</a>@else<span class="block truncate text-sm font-bold">{{ $bill['name'] }}</span>@endif
                     <span class="text-xs {{ $bill['overdue'] || ($bill['days_left'] !== null && $bill['days_left'] <= 1) ? 'font-bold text-neg' : 'text-muted' }}" data-testid="bill-when">@if ($bill['overdue']) venceu {{ \Carbon\Carbon::parse($bill['due'])->format('d/m') }} (atrasada) @elseif ($bill['days_left'] === 0) vence hoje @elseif ($bill['days_left'] === 1) vence amanhã @else vence dia {{ \Carbon\Carbon::parse($bill['due'])->format('d/m') }} @endif</span></span>
                 <span class="text-sm font-extrabold">{{ Money::format($bill['amount']) }}</span>
                 @if ($bill['owner_id'] !== null && $bill['owner_id'] !== auth()->id())

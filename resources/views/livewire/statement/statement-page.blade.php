@@ -47,6 +47,11 @@
                     @endif
                     <span class="block truncate text-xs text-muted" data-testid="{{ $row['source'] === 'card' ? 'card-purchases' : 'row-sub' }}">{{ $row['sub'] }}</span>
                 </span>
+                @if ($row['source'] === 'entry')
+                    <a href="{{ route('entry.show', $row['id']) }}" wire:navigate aria-label="Editar {{ $row['name'] }}" data-testid="edit-link" class="flex size-8 shrink-0 items-center justify-center rounded-full text-muted">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    </a>
+                @endif
                 <span class="text-right">
                     <span class="block text-sm font-extrabold {{ $row['signed'] >= 0 ? 'text-pos' : '' }}">{{ Money::signed($row['signed']) }}</span>
                     @if ($row['source'] !== 'person')

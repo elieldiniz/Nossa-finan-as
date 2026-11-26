@@ -14,6 +14,15 @@ use Illuminate\Support\Facades\DB;
  */
 class OpenMonthService
 {
+    /** Cria os meses que faltam de uma recorrência: do início até 12 meses à frente de hoje, sem buracos. */
+    public function fillRecurrence(Recurrence $recurrence): int
+    {
+        $start = CarbonImmutable::parse($recurrence->starts_on)->startOfMonth();
+        $months = max(12, (int) $start->diffInMonths(CarbonImmutable::now()->startOfMonth(), false) + 12);
+
+        return $this->openRange($recurrence->couple_id, $start, min($months, 400), $recurrence->id);
+    }
+
     /** @return int quantidade de ocorrências criadas agora */
     public function open(int $coupleId, CarbonImmutable $month): int
     {
