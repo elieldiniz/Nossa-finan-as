@@ -30,12 +30,6 @@
     <section class="nf-card p-5" aria-label="Contas a vencer" data-testid="due-bills">
         @php $pendentes = collect($due)->where('paid', false); $pagas = collect($due)->where('paid', true); @endphp
         <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Contas a vencer</h2><span class="text-xs text-muted" data-testid="due-count">{{ $this->monthDate()->translatedFormat('F') }} · {{ $pagas->count() }} de {{ count($due) }} pagas</span></div>
-        @if ($undo)
-            <div role="status" class="mt-2 rounded-2xl bg-brand-soft px-4 py-3 text-sm font-semibold text-brand" data-testid="undo">
-                <p>“{{ $undo['name'] }}” marcada como paga ✓. Para desfazer, use “Desfazer” abaixo, na própria conta.</p>
-                <div class="mt-2"><button type="button" wire:click="dismissUndo" class="nf-chip !min-h-9 !px-3 !text-xs">OK</button></div>
-            </div>
-        @endif
         @forelse ($pendentes as $bill)
             <div class="nf-row" wire:key="bill-{{ $bill['type'] }}-{{ $bill['id'] }}-{{ $bill['month'] }}" data-testid="bill">
                 <span class="flex size-10 shrink-0 items-center justify-center rounded-2xl {{ $bill['overdue'] || ($bill['days_left'] !== null && $bill['days_left'] <= 1) ? 'bg-neg-soft text-neg' : 'bg-[#FFF1D6] text-[#6B4600]' }}"><x-nav.icon :name="$bill['type'] === 'invoice' ? 'card' : 'list'" class="size-5" /></span>

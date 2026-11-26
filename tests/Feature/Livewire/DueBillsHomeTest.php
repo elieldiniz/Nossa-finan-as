@@ -69,13 +69,13 @@ it('conta do outro parceiro mostra "de Ana" em vez do botão Pago', function () 
         ->assertSeeHtml('>Pago</button>');
 });
 
-it('depois de marcar Pago aparece o aviso com Desfazer, e Desfazer devolve a conta à lista', function () {
+it('depois de marcar Pago a conta vai para as pagas, e Desfazer a devolve à lista', function () {
     [$eliel] = makeCouple();
     $this->travelTo(CarbonImmutable::parse('2026-10-05 09:00'));
     $conta = makeEntry($eliel, ['name' => 'Luz', 'due_on' => '2026-10-07']);
 
     $tela = Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-10')->call('payBill', 'entry', $conta->id, null)
-        ->assertSeeHtml('data-testid="undo"')->assertSee('“Luz” marcada como paga')->assertSeeHtml('data-testid="bill-paid"');
+        ->assertDontSeeHtml('data-testid="undo"')->assertSeeHtml('data-testid="bill-paid"');
     expect($conta->fresh()->paid)->toBeTrue();
 
     $tela->call('unpayBill', 'entry', $conta->id, null)->assertSeeHtml('data-testid="bill"')->assertDontSeeHtml('data-testid="bill-paid"');
@@ -90,7 +90,7 @@ it('desfazer a fatura paga a devolve para a lista', function () {
     makeEntry($eliel, ['card_id' => $card->id, 'month' => '2026-09-01', 'amount_cents' => 60000]);
 
     Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-10')->call('payBill', 'invoice', $card->id, '2026-09')
-        ->assertSee('Fatura Bradesco” marcada')->call('unpayBill', 'invoice', $card->id, '2026-09')->assertSeeHtml('data-testid="bill"');
+        ->assertDontSeeHtml('data-testid="undo"')->call('unpayBill', 'invoice', $card->id, '2026-09')->assertSeeHtml('data-testid="bill"');
 
     expect(CardInvoice::where('card_id', $card->id)->first()->paid)->toBeFalse();
 });

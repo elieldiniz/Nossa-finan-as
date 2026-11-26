@@ -24,9 +24,6 @@ class HomePage extends Component
 {
     use WithMonthView;
 
-    /** Última conta marcada como paga aqui, para o botão "Desfazer". */
-    public ?array $undo = null;
-
     /** Desmarca uma conta que estava paga (botão "Desfazer" da própria linha). */
     public function unpayBill(string $type, int $id, ?string $month, EntryService $entries): void
     {
@@ -43,11 +40,6 @@ class HomePage extends Component
         $entries->setPaid(auth()->user(), $entry, false);
     }
 
-    public function dismissUndo(): void
-    {
-        $this->undo = null;
-    }
-
     /** "Marcar pago" nas contas a vencer: lançamento (só o dono) ou fatura do cartão (compartilhada). */
     public function payBill(string $type, int $id, ?string $month, EntryService $entries): void
     {
@@ -60,7 +52,6 @@ class HomePage extends Component
             $invoice->paid = true;
             $invoice->paid_at = now();
             $invoice->save();
-            $this->undo = ['type' => 'invoice', 'id' => $card->id, 'month' => $month, 'name' => 'Fatura '.$card->name];
 
             return;
         }
@@ -68,7 +59,6 @@ class HomePage extends Component
         $entry = Entry::findOrFail($id);
         Gate::authorize('update', $entry);
         $entries->setPaid(auth()->user(), $entry, true);
-        $this->undo = ['type' => 'entry', 'id' => $entry->id, 'month' => null, 'name' => $entry->name];
     }
 
     public function render()
