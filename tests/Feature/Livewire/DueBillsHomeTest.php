@@ -14,7 +14,7 @@ it('o Início mostra "Contas a vencer" com quantos dias faltam', function () {
 
     Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-10')
         ->assertSeeHtml('data-testid="due-bills"')
-        ->assertSee('vence hoje')->assertSee('vence amanhã')->assertSee('vence em 4 dias')->assertSee('R$ 1.500,00');
+        ->assertSee('vence hoje')->assertSee('vence amanhã')->assertSee('vence dia 09/10')->assertSee('R$ 1.500,00');
 });
 
 it('sem nada a vencer explica como aparecer ali', function () {
@@ -75,10 +75,10 @@ it('depois de marcar Pago aparece o aviso com Desfazer, e Desfazer devolve a con
     $conta = makeEntry($eliel, ['name' => 'Luz', 'due_on' => '2026-10-07']);
 
     $tela = Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-10')->call('payBill', 'entry', $conta->id, null)
-        ->assertSeeHtml('data-testid="undo"')->assertSee('“Luz” marcada como paga')->assertSee('Extrato com ✓');
+        ->assertSeeHtml('data-testid="undo"')->assertSee('“Luz” marcada como paga')->assertSeeHtml('data-testid="bill-paid"');
     expect($conta->fresh()->paid)->toBeTrue();
 
-    $tela->call('undoPay')->assertDontSeeHtml('data-testid="undo"')->assertSeeHtml('data-testid="bill"');
+    $tela->call('unpayBill', 'entry', $conta->id, null)->assertSeeHtml('data-testid="bill"')->assertDontSeeHtml('data-testid="bill-paid"');
     expect($conta->fresh()->paid)->toBeFalse();
 });
 
@@ -90,7 +90,32 @@ it('desfazer a fatura paga a devolve para a lista', function () {
     makeEntry($eliel, ['card_id' => $card->id, 'month' => '2026-09-01', 'amount_cents' => 60000]);
 
     Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-10')->call('payBill', 'invoice', $card->id, '2026-09')
-        ->assertSee('Fatura Bradesco” marcada')->call('undoPay')->assertSee('Fatura Bradesco');
+        ->assertSee('Fatura Bradesco” marcada')->call('unpayBill', 'invoice', $card->id, '2026-09')->assertSeeHtml('data-testid="bill"');
 
     expect(CardInvoice::where('card_id', $card->id)->first()->paid)->toBeFalse();
+});
+
+it('mostra tudo que vence no mês, não só os próximos 7 dias, com contador de pagas', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-26 09:00'));
+    makeEntry($eliel, ['name' => 'Aluguel', 'month' => '2026-11-01', 'due_on' => '2026-11-05', 'paid' => true]);
+    makeEntry($eliel, ['name' => 'Internet', 'month' => '2026-11-01', 'due_on' => '2026-11-20']);
+    makeEntry($eliel, ['name' => 'Luz', 'month' => '2026-11-01', 'due_on' => '2026-11-30']);
+    makeEntry($eliel, ['name' => 'Parcela dezembro', 'month' => '2026-12-01', 'due_on' => '2026-12-25']);
+
+    $nov = Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-11')
+        ->assertSee('Internet')->assertSee('venceu 20/11 (atrasada)')->assertSee('Luz')->assertSee('vence dia 30/11')
+        ->assertSee('1 de 3 pagas')->assertSeeHtml('data-testid="bill-paid"')->assertDontSee('Parcela dezembro');
+
+    Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-12')
+        ->assertSee('Parcela dezembro')->assertSee('vence dia 25/12')->assertDontSee('Internet')->assertSee('0 de 1 pagas');
+});
+
+it('mês sem contas e mês todo pago têm mensagens diferentes', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-26 09:00'));
+    makeEntry($eliel, ['name' => 'Luz', 'month' => '2026-11-01', 'due_on' => '2026-11-30', 'paid' => true]);
+
+    Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-11')->assertSee('Tudo pago neste mês');
+    Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2027-05')->assertSee('Nenhuma conta com vencimento neste mês');
 });

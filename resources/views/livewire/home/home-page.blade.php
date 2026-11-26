@@ -28,21 +28,19 @@
     @endif
 
     <section class="nf-card p-5" aria-label="Contas a vencer" data-testid="due-bills">
-        <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Contas a vencer</h2><span class="text-xs text-muted">próximos 7 dias</span></div>
+        @php $pendentes = collect($due)->where('paid', false); $pagas = collect($due)->where('paid', true); @endphp
+        <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Contas a vencer</h2><span class="text-xs text-muted" data-testid="due-count">{{ $this->monthDate()->translatedFormat('F') }} · {{ $pagas->count() }} de {{ count($due) }} pagas</span></div>
         @if ($undo)
             <div role="status" class="mt-2 rounded-2xl bg-brand-soft px-4 py-3 text-sm font-semibold text-brand" data-testid="undo">
-                <p>“{{ $undo['name'] }}” marcada como paga ✓. Ela agora aparece no Extrato com ✓ (tocar no ✓ lá desfaz).</p>
-                <div class="mt-2 flex gap-2">
-                    <button type="button" wire:click="undoPay" class="nf-chip !min-h-9 !px-3 !text-xs !text-brand" data-testid="undo-button">Desfazer</button>
-                    <button type="button" wire:click="dismissUndo" class="nf-chip !min-h-9 !px-3 !text-xs">OK</button>
-                </div>
+                <p>“{{ $undo['name'] }}” marcada como paga ✓. Para desfazer, use “Desfazer” abaixo, na própria conta.</p>
+                <div class="mt-2"><button type="button" wire:click="dismissUndo" class="nf-chip !min-h-9 !px-3 !text-xs">OK</button></div>
             </div>
         @endif
-        @forelse ($due as $bill)
+        @forelse ($pendentes as $bill)
             <div class="nf-row" wire:key="bill-{{ $bill['type'] }}-{{ $bill['id'] }}-{{ $bill['month'] }}" data-testid="bill">
-                <span class="flex size-10 shrink-0 items-center justify-center rounded-2xl {{ $bill['days_left'] <= 1 ? 'bg-neg-soft text-neg' : 'bg-[#FFF1D6] text-[#6B4600]' }}"><x-nav.icon :name="$bill['type'] === 'invoice' ? 'card' : 'list'" class="size-5" /></span>
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-2xl {{ $bill['overdue'] || ($bill['days_left'] !== null && $bill['days_left'] <= 1) ? 'bg-neg-soft text-neg' : 'bg-[#FFF1D6] text-[#6B4600]' }}"><x-nav.icon :name="$bill['type'] === 'invoice' ? 'card' : 'list'" class="size-5" /></span>
                 <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold">{{ $bill['name'] }}</span>
-                    <span class="text-xs {{ $bill['days_left'] <= 1 ? 'font-bold text-neg' : 'text-muted' }}">{{ $bill['days_left'] === 0 ? 'vence hoje' : ($bill['days_left'] === 1 ? 'vence amanhã' : 'vence em '.$bill['days_left'].' dias') }} · {{ \Carbon\Carbon::parse($bill['due'])->format('d/m') }}</span></span>
+                    <span class="text-xs {{ $bill['overdue'] || ($bill['days_left'] !== null && $bill['days_left'] <= 1) ? 'font-bold text-neg' : 'text-muted' }}" data-testid="bill-when">@if ($bill['overdue']) venceu {{ \Carbon\Carbon::parse($bill['due'])->format('d/m') }} (atrasada) @elseif ($bill['days_left'] === 0) vence hoje @elseif ($bill['days_left'] === 1) vence amanhã @else vence dia {{ \Carbon\Carbon::parse($bill['due'])->format('d/m') }} @endif</span></span>
                 <span class="text-sm font-extrabold">{{ Money::format($bill['amount']) }}</span>
                 @if ($bill['owner_id'] !== null && $bill['owner_id'] !== auth()->id())
                     <span class="text-xs font-semibold text-muted" data-testid="bill-owner">de {{ \Illuminate\Support\Str::before($owners[$bill['owner_id']] ?? 'outra pessoa', ' ') }}</span>
@@ -51,8 +49,19 @@
                 @endif
             </div>
         @empty
-            <p class="mt-2 text-sm text-muted" data-testid="no-bills">Nada vence nos próximos 7 dias. <a href="{{ route('cards') }}" wire:navigate class="font-bold text-brand">Cadastre o “vence dia” dos cartões</a> e use “Vence em” ao lançar uma conta para ela aparecer aqui.</p>
+            <p class="mt-2 text-sm text-muted" data-testid="no-bills">@if (count($due) > 0) Tudo pago neste mês. 🎉 @else Nenhuma conta com vencimento neste mês. <a href="{{ route('cards') }}" wire:navigate class="font-bold text-brand">Cadastre o “vence dia” dos cartões</a> e use “Vence em” ao lançar uma conta para ela aparecer aqui. @endif</p>
         @endforelse
+
+        @foreach ($pagas as $bill)
+            <div class="nf-row opacity-70" wire:key="paid-{{ $bill['type'] }}-{{ $bill['id'] }}-{{ $bill['month'] }}" data-testid="bill-paid">
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-pos-soft text-pos">✓</span>
+                <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold line-through">{{ $bill['name'] }}</span><span class="text-xs text-muted">paga · dia {{ \Carbon\Carbon::parse($bill['due'])->format('d/m') }}</span></span>
+                <span class="text-sm font-extrabold">{{ Money::format($bill['amount']) }}</span>
+                @if ($view !== 'par' && ($bill['owner_id'] === null || $bill['owner_id'] === auth()->id()))
+                    <button type="button" wire:click="unpayBill('{{ $bill['type'] }}', {{ $bill['id'] }}, {{ $bill['month'] ? "'".$bill['month']."'" : 'null' }})" class="nf-chip !min-h-9 !px-3 !text-xs">Desfazer</button>
+                @endif
+            </div>
+        @endforeach
     </section>
 
     <div class="grid gap-4 lg:grid-cols-2">

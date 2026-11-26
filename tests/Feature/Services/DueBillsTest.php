@@ -98,3 +98,35 @@ it('dia 31 em mês curto vence no último dia do mês', function () {
 
     expect(contas($eliel, '2026-02-25')[0]['due'])->toBe('2026-02-28');
 });
+
+it('forMonth: fatura do mês anterior vence no dia do cartão do mês e mostra paga ou não', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel);
+    $card->update(['due_day' => 10]);
+    compraNoCartao($eliel, $card, '2026-09');
+    test()->actingAs($eliel);
+
+    $out = app(DueBills::class)->forMonth(CarbonImmutable::parse('2026-10-01'), ViewContext::for($eliel, 'nos'), CarbonImmutable::parse('2026-10-05'));
+
+    expect($out)->toHaveCount(1)->and($out[0])->toMatchArray(['name' => 'Fatura Bradesco', 'due' => '2026-10-10', 'paid' => false, 'overdue' => false, 'days_left' => 5]);
+
+    $out = app(DueBills::class)->forMonth(CarbonImmutable::parse('2026-10-01'), ViewContext::for($eliel, 'nos'), CarbonImmutable::parse('2026-10-12'));
+    expect($out[0]['overdue'])->toBeTrue()->and($out[0]['days_left'])->toBe(-2);
+
+    // outro mês: sem "dias restantes"
+    $nov = app(DueBills::class)->forMonth(CarbonImmutable::parse('2026-10-01'), ViewContext::for($eliel, 'nos'), CarbonImmutable::parse('2026-08-01'));
+    expect($nov[0]['days_left'])->toBeNull();
+});
+
+it('forMonth: respeita a visão Eu/Par e ignora compras de cartão e entradas', function () {
+    [$eliel, $ana] = makeCouple();
+    makeEntry($eliel, ['name' => 'Do Eliel', 'month' => '2026-10-01', 'due_on' => '2026-10-20']);
+    makeEntry($ana, ['name' => 'Da Ana', 'month' => '2026-10-01', 'due_on' => '2026-10-21']);
+    makeEntry($eliel, ['name' => 'Salário', 'kind' => 'entrada', 'month' => '2026-10-01', 'due_on' => '2026-10-22', 'category_id' => categoryOf($eliel->couple_id, 'Salário')->id]);
+    test()->actingAs($eliel);
+    $mes = CarbonImmutable::parse('2026-10-01');
+
+    expect(array_column(app(DueBills::class)->forMonth($mes, ViewContext::for($eliel, 'nos')), 'name'))->toBe(['Do Eliel', 'Da Ana'])
+        ->and(array_column(app(DueBills::class)->forMonth($mes, ViewContext::for($eliel, 'eu')), 'name'))->toBe(['Do Eliel'])
+        ->and(array_column(app(DueBills::class)->forMonth($mes, ViewContext::for($eliel, 'par')), 'name'))->toBe(['Da Ana']);
+});

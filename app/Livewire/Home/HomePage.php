@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Services\DueBills;
 use App\Services\EntryService;
 use App\Services\MonthSummary;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
@@ -25,28 +24,23 @@ class HomePage extends Component
 {
     use WithMonthView;
 
-    /** "Marcar pago" nas contas a vencer: lançamento (só o dono) ou fatura do cartão (compartilhada). */
     /** Última conta marcada como paga aqui, para o botão "Desfazer". */
     public ?array $undo = null;
 
-    public function undoPay(EntryService $entries): void
+    /** Desmarca uma conta que estava paga (botão "Desfazer" da própria linha). */
+    public function unpayBill(string $type, int $id, ?string $month, EntryService $entries): void
     {
-        if ($this->undo === null) {
+        if ($type === 'invoice') {
+            $card = Card::findOrFail($id);
+            Gate::authorize('update', $card);
+            CardInvoice::where('card_id', $card->id)->where('month', $month.'-01')->first()?->update(['paid' => false, 'paid_at' => null]);
+
             return;
         }
 
-        if ($this->undo['type'] === 'invoice') {
-            $card = Card::findOrFail($this->undo['id']);
-            Gate::authorize('update', $card);
-            $invoice = CardInvoice::where('card_id', $card->id)->where('month', $this->undo['month'].'-01')->first();
-            $invoice?->update(['paid' => false, 'paid_at' => null]);
-        } else {
-            $entry = Entry::findOrFail($this->undo['id']);
-            Gate::authorize('update', $entry);
-            $entries->setPaid(auth()->user(), $entry, false);
-        }
-
-        $this->undo = null;
+        $entry = Entry::findOrFail($id);
+        Gate::authorize('update', $entry);
+        $entries->setPaid(auth()->user(), $entry, false);
     }
 
     public function dismissUndo(): void
@@ -54,6 +48,7 @@ class HomePage extends Component
         $this->undo = null;
     }
 
+    /** "Marcar pago" nas contas a vencer: lançamento (só o dono) ou fatura do cartão (compartilhada). */
     public function payBill(string $type, int $id, ?string $month, EntryService $entries): void
     {
         if ($type === 'invoice') {
@@ -90,7 +85,7 @@ class HomePage extends Component
             'byCategory' => $this->expensesByCategory($summary),
             'goalAlert' => $this->goalAlert($summary),
             'owners' => User::where('couple_id', auth()->user()->couple_id)->pluck('name', 'id'),
-            'due' => app(DueBills::class)->upcoming(CarbonImmutable::now(), $this->context()),
+            'due' => app(DueBills::class)->forMonth($this->monthDate(), $this->context()),
             'investing' => $this->investing($summary),
         ]);
     }
