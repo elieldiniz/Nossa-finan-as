@@ -85,10 +85,15 @@ class HomePage extends Component
     {
         $cardLines = collect($summary['cards'])->flatMap(fn ($c) => $c['lines']);
 
-        return $summary['entries']->where('kind', Entry::SAIDA)->merge($cardLines)
+        $byCategory = $summary['entries']->where('kind', Entry::SAIDA)->merge($cardLines)
             ->groupBy(fn (Entry $e) => $e->category?->name ?? 'Sem categoria')
-            ->map(fn ($group) => (int) $group->sum('amount_cents'))
-            ->sortDesc();
+            ->map(fn ($group) => (int) $group->sum('amount_cents'));
+
+        if ($summary['vale']['spent'] > 0) { // o gasto do vale também é saída
+            $byCategory['Vale'] = ($byCategory['Vale'] ?? 0) + $summary['vale']['spent'];
+        }
+
+        return $byCategory->sortDesc();
     }
 
     private function goalAlert(array $summary): array

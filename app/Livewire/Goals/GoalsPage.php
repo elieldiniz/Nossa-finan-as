@@ -7,6 +7,7 @@ use App\Livewire\Concerns\WithMonthView;
 use App\Models\Category;
 use App\Models\Entry;
 use App\Models\Goal;
+use App\Models\ValeSpend;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
@@ -120,7 +121,7 @@ class GoalsPage extends Component
 
         $expenses = Entry::with('category')->where('month', $monthDate)->where('kind', Entry::SAIDA)->get();
         $byCategory = $expenses->groupBy('category_id')->map(fn ($g) => (int) $g->sum('amount_cents'));
-        $totalSpent = (int) $expenses->sum('amount_cents');
+        $totalSpent = (int) $expenses->sum('amount_cents') + (int) ValeSpend::query()->where('month', $monthDate)->sum('amount_cents');
 
         $goals = Goal::all();
         $general = $goals->first(fn (Goal $g) => $g->kind === Goal::GASTO && $g->category_id === null);

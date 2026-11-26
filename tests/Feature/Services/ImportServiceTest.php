@@ -19,7 +19,7 @@ function payloadSetembro(array $extra = []): ImportPayload
     return (new OrcMesImport)->parse(OrcMesFixture::setembro($extra));
 }
 
-it('grava Setembro: Bradesco 600, Madrinha +115, Vale 2.250 e fechamento −485 no app', function () {
+it('grava Setembro: Bradesco 600, Madrinha +115, Vale 2.250 e fechamento +1.765 no app (−485 sem o vale)', function () {
     [$eliel] = makeCouple();
     $this->actingAs($eliel);
     $setembro = CarbonImmutable::parse('2026-09-01');
@@ -28,7 +28,7 @@ it('grava Setembro: Bradesco 600, Madrinha +115, Vale 2.250 e fechamento −485 
 
     $resumo = app(MonthSummary::class)->build($eliel, $setembro);
     expect($contagem['entries'])->toBe(2)->and($contagem['debts'])->toBe(2)
-        ->and($resumo['closing']->closing)->toBe(-48500)
+        ->and($resumo['closing']->closing)->toBe(176500)
         ->and($resumo['cards'][0]['total'])->toBe(60000)
         ->and(Vale::first()->amount_cents)->toBe(225000)
         ->and(Card::pluck('name')->sort()->values()->all())->toBe(['Bradesco', 'Cresol']);

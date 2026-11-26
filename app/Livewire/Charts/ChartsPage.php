@@ -5,6 +5,7 @@ namespace App\Livewire\Charts;
 use App\Domain\ReportCalculator;
 use App\Livewire\Concerns\WithMonthView;
 use App\Models\Entry;
+use App\Models\ValeSpend;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -42,6 +43,12 @@ class ChartsPage extends Component
             ->map(fn ($entries) => $entries->groupBy(fn (Entry $e) => $e->category?->name ?? 'Sem categoria')
                 ->map(fn ($g) => (int) $g->sum('amount_cents'))->all())
             ->all();
+
+        $valeSpends = ValeSpend::query()->whereBetween('month', [$start->toDateString(), $end->toDateString()])->get()
+            ->filter(fn (ValeSpend $x) => $context->applies($x->owner_id))->groupBy(fn (ValeSpend $x) => $x->month->format('Y-m'));
+        foreach ($valeSpends as $key => $group) {
+            $byMonth[$key]['Vale'] = ($byMonth[$key]['Vale'] ?? 0) + (int) $group->sum('amount_cents');
+        }
 
         return ReportCalculator::build($byMonth, $end->format('Y-m'), $this->period);
     }

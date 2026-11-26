@@ -14,6 +14,7 @@ use App\Models\PersonDebt;
 use App\Models\User;
 use App\Models\Vale;
 use App\Models\ValeSpend;
+use App\Support\Money;
 use App\Support\ViewContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -59,10 +60,14 @@ class MonthSummary
             ];
         }
 
+        $vale = $this->vale($context, $month);
+
         $closing = MonthClosing::calculate(
             $plain->map(fn (Entry $e) => ['type' => $e->kind, 'amount' => $e->amount_cents])->all(),
             array_column($cards, 'total'),
             array_column($people, 'net'),
+            $vale['amount'],
+            $vale['spent'],
         );
 
         return [
@@ -71,12 +76,12 @@ class MonthSummary
             'entries' => $plain,
             'cards' => $cards,
             'people' => $people,
-            'vale' => $this->vale($context, $month),
+            'vale' => $vale,
             'closing' => $closing,
         ];
     }
 
-    /** O vale é por parceiro; em "Nós" soma os dois. A sobra não passa para o mês seguinte. */
+    /** O vale é por parceiro; em "Nós" soma os dois. A sobra não passa para o mês seguinte. O valor é entrada e o gasto é saída no saldo. */
     private function vale(ViewContext $context, CarbonImmutable $month): array
     {
         $vales = Vale::query()->get()->filter(fn (Vale $v) => $context->applies($v->owner_id));
@@ -120,11 +125,11 @@ class MonthSummary
             }
         }
 
-        // O vale é controlado à parte (não entra no saldo): no Extrato aparece como informação, com os gastos dentro.
+        // O vale: o valor entra como entrada e o gasto como saída no saldo; aqui mostra o restante e os gastos dentro.
         $vale = $summary['vale'];
         if ($withVale && ($vale['amount'] > 0 || $vale['spends'] !== [])) {
             $rows->push(['source' => 'vale', 'id' => 0, 'name' => 'Vale', 'kind' => 'vale', 'paid' => false, 'owner_id' => null, 'recurring' => false,
-                'sub' => $vale['spends'] === [] ? 'Nenhum gasto ainda · fora do saldo' : implode(', ', array_slice(array_column($vale['spends'], 'name'), 0, 2)).(count($vale['spends']) > 2 ? ' e mais '.(count($vale['spends']) - 2) : ''),
+                'sub' => 'Gastou '.Money::format($vale['spent']).' de '.Money::format($vale['amount']).($vale['spends'] === [] ? '' : ' · '.implode(', ', array_slice(array_column($vale['spends'], 'name'), 0, 2)).(count($vale['spends']) > 2 ? ' e mais '.(count($vale['spends']) - 2) : '')),
                 'signed' => $vale['remaining'], 'lines' => array_map(fn ($x) => ['id' => $x['id'], 'name' => $x['name'], 'amount' => $x['amount'], 'sub' => 'Gasto do vale'], $vale['spends']),
                 'vale' => $vale]);
         }

@@ -41,3 +41,11 @@ it('calcula 200 linhas em menos de 50 ms', function () {
 
     expect((hrtime(true) - $start) / 1e6)->toBeLessThan(50);
 });
+
+it('o vale entra no saldo: valor como entrada e o gasto como saída', function () {
+    $r = MonthClosing::calculate([['type' => 'saida', 'amount' => 10000]], valeAmount: 225000, valeSpent: 45000);
+
+    expect($r->income)->toBe(225000)->and($r->expense)->toBe(55000)->and($r->closing)->toBe(170000);
+    // sem vale continua igual à planilha
+    expect(MonthClosing::calculate([['type' => 'saida', 'amount' => 10000]])->closing)->toBe(-10000);
+});

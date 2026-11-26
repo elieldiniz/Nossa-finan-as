@@ -55,7 +55,7 @@
                 <span class="text-right">
                     <span class="block text-sm font-extrabold {{ $row['source'] !== 'vale' && $row['signed'] >= 0 ? 'text-pos' : '' }}">{{ $row['source'] === 'vale' ? Money::format($row['signed']) : Money::signed($row['signed']) }}</span>
                     @if ($row['source'] === 'vale')
-                        <span class="text-xs font-bold text-brand" data-testid="status">restante · fora do saldo</span>
+                        <span class="text-xs font-bold text-brand" data-testid="status">restante do vale</span>
                     @elseif ($row['source'] !== 'person')
                         @php $kindRow = ($row['kind'] ?? '') === 'aporte' ? ['Aplicado', 'A aplicar'] : ($row['signed'] >= 0 ? ['Recebido', 'A receber'] : ['Pago', 'A pagar']); @endphp
                         <span class="text-xs font-bold {{ $row['paid'] ? 'text-brand' : 'text-[#8A5A00]' }}" data-testid="status">{{ $row['paid'] ? '✓ '.$kindRow[0] : $kindRow[1] }}</span>

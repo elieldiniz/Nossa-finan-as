@@ -137,7 +137,7 @@ it('na linha do cartão aparece o nome das compras sem abrir (com "e mais N" qua
     Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertSeeHtml('data-testid="card-purchases">Mercado Livre, SHEIN e mais 2<');
 });
 
-it('o Extrato mostra o Vale (restante e gastos), fora do saldo, só na lista "Todos"', function () {
+it('o Extrato mostra o Vale: quanto gastou, o restante, e entra no saldo (valor = entrada, gasto = saída)', function () {
     [$eliel] = makeCouple();
     $vale = makeVale($eliel, 225000);
     $spend = new ValeSpend(['vale_id' => $vale->id, 'owner_id' => $eliel->id, 'name' => 'Mercadão', 'amount_cents' => 45000, 'month' => '2026-09-01']);
@@ -146,19 +146,20 @@ it('o Extrato mostra o Vale (restante e gastos), fora do saldo, só na lista "To
     makeEntry($eliel, ['name' => 'Luz', 'amount_cents' => 10000]);
 
     $tela = Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')
-        ->assertSeeHtml('data-testid="vale-sub">Mercadão<')->assertSee('R$ 1.800,00')->assertSee('restante · fora do saldo');
+        ->assertSee('Gastou R$ 450,00 de R$ 2.250,00')->assertSee('Mercadão')->assertSee('R$ 1.800,00')->assertSee('restante do vale');
 
-    // o saldo do mês não muda por causa do vale (só a Luz de R$ 100,00 é saída)
-    expect(app(MonthSummary::class)->build($eliel, CarbonImmutable::parse('2026-09-01'))['closing']->expense)->toBe(10000);
+    // saldo: entrada = vale (2.250), saída = Luz 100 + gasto do vale 450 = 550
+    $closing = app(MonthSummary::class)->build($eliel, CarbonImmutable::parse('2026-09-01'))['closing'];
+    expect($closing->income)->toBe(225000)->and($closing->expense)->toBe(55000)->and($closing->closing)->toBe(170000);
 
-    $tela->call('toggleCard', 0)->assertSee('Mercadão')->assertSee('Gasto do vale')->assertSee('R$ 450,00');
-    $tela->call('setFilter', 'pending')->assertDontSee('fora do saldo');
+    $tela->call('toggleCard', 0)->assertSee('Gasto do vale')->assertSee('R$ 450,00');
+    $tela->call('setFilter', 'pending')->assertDontSee('restante do vale');
 });
 
 it('sem vale cadastrado a linha não aparece', function () {
     [$eliel] = makeCouple();
 
-    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertDontSee('fora do saldo');
+    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertDontSee('restante do vale');
 });
 
 it('cada linha do Extrato mostra o seu ícone (lançamento, cartão, vale)', function () {

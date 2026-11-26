@@ -3,13 +3,14 @@
 use App\Services\MonthSummary;
 use App\Support\ViewContext;
 
-it('o caso da planilha em "Nós" fecha em −R$ 485,00', function () {
+it('o caso da planilha em "Nós": −R$ 485,00 sem o vale e +R$ 1.765,00 com o vale (R$ 2.250,00 de entrada)', function () {
     [$eliel, , $setembro] = cenarioPlanilha();
 
     $resumo = app(MonthSummary::class)->build($eliel, $setembro, ViewContext::NOS);
 
-    expect($resumo['closing']->closing)->toBe(-48500)
-        ->and($resumo['closing']->income)->toBe(11500)
+    expect($resumo['closing']->closing)->toBe(176500)
+        ->and($resumo['closing']->income)->toBe(236500) // Madrinha 115 + vale 2.250
+        ->and($resumo['closing']->closing - $resumo['vale']['amount'])->toBe(-48500) // o fechamento da planilha, sem o vale
         ->and($resumo['closing']->expense)->toBe(60000)
         ->and($resumo['cards'][0]['total'])->toBe(60000)
         ->and($resumo['vale']['remaining'])->toBe(225000)
@@ -23,7 +24,7 @@ it('a visão "Eliel" traz só o que é do Eliel e a "Ana" só o dela', function 
     $par = app(MonthSummary::class)->build($eliel, $setembro, ViewContext::PAR);
 
     // as 2 saídas de cartão são do Eliel; a pendência da Madrinha é da Ana
-    expect($eu['closing']->expense)->toBe(60000)->and($eu['closing']->income)->toBe(0)
+    expect($eu['closing']->expense)->toBe(60000)->and($eu['closing']->income)->toBe(225000) // o vale é do Eliel
         ->and($par['closing']->income)->toBe(11500)->and($par['closing']->expense)->toBe(0)
         ->and($par['view']->isReadOnly())->toBeTrue()
         ->and($eu['view']->isReadOnly())->toBeFalse();
