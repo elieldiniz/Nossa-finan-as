@@ -18,16 +18,14 @@
         @error('amount') <p class="text-sm font-bold text-neg">{{ $message }}</p> @enderror
     </div>
 
-    <fieldset>
-        <legend class="nf-label">Categoria</legend>
-        <div class="flex flex-wrap gap-2">
-            @foreach ($categories as $category)
-                <button type="button" wire:click="$set('categoryId', {{ $category->id }})" aria-pressed="{{ $categoryId === $category->id ? 'true' : 'false' }}"
-                        class="nf-chip {{ $categoryId === $category->id ? 'nf-chip-on' : '' }}">{{ $category->name }}</button>
-            @endforeach
-        </div>
+    <div>
+        <label for="category" class="nf-label">Categoria</label>
+        <select id="category" wire:model.live="categoryId" class="nf-input" data-testid="category-select">
+            <option value="">Escolha a categoria…</option>
+            @foreach ($categories as $category)<option value="{{ $category->id }}">{{ $category->name }}</option>@endforeach
+        </select>
         @error('categoryId') <p class="mt-1 text-sm font-bold text-neg">Escolha uma categoria.</p> @enderror
-    </fieldset>
+    </div>
 
     <div>
         <label for="name" class="nf-label">Nome</label>
