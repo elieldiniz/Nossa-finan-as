@@ -39,10 +39,13 @@
                 <span class="min-w-0 flex-1">
                     @if ($row['source'] === 'entry')
                         <a href="{{ route('entry.show', $row['id']) }}" wire:navigate class="block truncate text-sm font-bold">{{ $row['name'] }}</a>
+                    @elseif ($row['source'] === 'card')
+                        <button type="button" wire:click="toggleCard({{ $row['id'] }})" aria-expanded="{{ in_array($row['id'], $openCards, true) ? 'true' : 'false' }}" data-testid="card-toggle"
+                                class="flex max-w-full items-center gap-1 text-left text-sm font-bold"><span class="truncate">{{ $row['name'] }}</span><span aria-hidden="true" class="text-xs text-brand">{{ in_array($row['id'], $openCards, true) ? '▴' : '▾' }}</span></button>
                     @else
                         <span class="block truncate text-sm font-bold">{{ $row['name'] }}</span>
                     @endif
-                    <span class="text-xs text-muted">{{ $row['sub'] }}</span>
+                    <span class="text-xs text-muted">{{ $row['sub'] }}@if ($row['source'] === 'card' && ! in_array($row['id'], $openCards, true)) · toque para ver @endif</span>
                 </span>
                 <span class="text-right">
                     <span class="block text-sm font-extrabold {{ $row['signed'] >= 0 ? 'text-pos' : '' }}">{{ Money::signed($row['signed']) }}</span>
@@ -52,6 +55,16 @@
                     @endif
                 </span>
             </div>
+            @if ($row['source'] === 'card' && in_array($row['id'], $openCards, true))
+                <div class="mb-2 ml-10 rounded-2xl bg-ground px-3 py-1" data-testid="card-lines" wire:key="lines-{{ $row['id'] }}">
+                    @foreach ($row['lines'] as $line)
+                        <div class="flex items-center justify-between gap-3 border-b border-white py-2 last:border-0" data-testid="card-line">
+                            <span class="min-w-0"><a href="{{ route('entry.show', $line['id']) }}" wire:navigate class="block truncate text-sm font-bold">{{ $line['name'] }}</a><span class="text-xs text-muted">{{ $line['sub'] }}</span></span>
+                            <span class="text-sm font-bold">{{ Money::format($line['amount']) }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
         @empty
             <p class="py-6 text-center text-sm text-muted">Nenhum lançamento por aqui.</p>
         @endforelse

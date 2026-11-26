@@ -107,8 +107,13 @@ class MonthSummary
 
         foreach ($summary['cards'] as $c) {
             if ($c['expense'] !== null) {
-                $rows->push(['source' => 'card', 'id' => $c['card']->id, 'name' => 'Cartão '.$c['card']->name, 'sub' => 'Cartões · automático',
-                    'signed' => -$c['total'], 'kind' => 'saida', 'paid' => $c['paid'], 'owner_id' => null, 'recurring' => false]);
+                $lines = $c['lines']->map(fn (Entry $e) => [
+                    'id' => $e->id, 'name' => $e->name, 'amount' => $e->amount_cents,
+                    'sub' => ($e->category?->name ?? 'Sem categoria').($e->installment_label ? ' · parcela '.$e->installment_label : ''),
+                ])->all();
+
+                $rows->push(['source' => 'card', 'id' => $c['card']->id, 'name' => 'Cartão '.$c['card']->name, 'sub' => 'Cartões · '.count($lines).' '.(count($lines) === 1 ? 'compra' : 'compras'),
+                    'signed' => -$c['total'], 'kind' => 'saida', 'paid' => $c['paid'], 'owner_id' => null, 'recurring' => false, 'lines' => $lines]);
             }
         }
 

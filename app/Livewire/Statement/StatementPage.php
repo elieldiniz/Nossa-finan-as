@@ -103,6 +103,16 @@ class StatementPage extends Component
             : "Fatura do {$card->name} voltou para “a pagar”. Se o vencimento estiver próximo, ela volta para Contas a vencer no Início.";
     }
 
+    /** Cartões com a lista de compras aberta. @var array<int, int> */
+    public array $openCards = [];
+
+    public function toggleCard(int $cardId): void
+    {
+        $this->openCards = in_array($cardId, $this->openCards, true)
+            ? array_values(array_diff($this->openCards, [$cardId]))
+            : [...$this->openCards, $cardId];
+    }
+
     public function dismissNotice(): void
     {
         $this->notice = null;
@@ -119,7 +129,7 @@ class StatementPage extends Component
         $rows = $service->rows($summary)
             ->when($this->filter === 'pending', fn ($r) => $r->where('paid', false))
             ->when($this->filter === 'paid', fn ($r) => $r->where('paid', true))
-            ->when($term !== '', fn ($r) => $r->filter(fn ($row) => str_contains(mb_strtolower($row['name'].' '.$row['sub']), $term)))
+            ->when($term !== '', fn ($r) => $r->filter(fn ($row) => str_contains(mb_strtolower($row['name'].' '.$row['sub'].' '.collect($row['lines'] ?? [])->pluck('name')->implode(' ')), $term)))
             ->values();
 
         return view('livewire.statement.statement-page', ['summary' => $summary, 'rows' => $rows]);

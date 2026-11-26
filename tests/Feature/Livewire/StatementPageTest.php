@@ -96,3 +96,26 @@ it('na visão "Nós" cada um vê os lançamentos e parcelas dos dois', function 
     Livewire::actingAs($ana)->test(StatementPage::class)->set('month', '2026-09')->call('setView', 'eu')
         ->assertSee('Parcela da Ana')->assertDontSee('Parcela do Eliel');
 });
+
+it('a linha do cartão abre e mostra cada compra com categoria e parcela', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'SHEIN', 'amount_cents' => 12000, 'installment_label' => '2/5', 'category_id' => categoryOf($eliel->couple_id, 'Lazer')->id]);
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'Uber', 'amount_cents' => 2400]);
+
+    $tela = Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')
+        ->assertSee('Cartão Nubank')->assertSee('2 compras')->assertSee('toque para ver')->assertDontSeeHtml('data-testid="card-lines"');
+
+    $tela->call('toggleCard', $card->id)->assertSeeHtml('data-testid="card-lines"')->assertSee('SHEIN')->assertSee('Lazer · parcela 2/5')->assertSee('R$ 120,00')->assertSee('Uber')->assertSee('R$ 24,00');
+    expect(substr_count($tela->html(), 'data-testid="card-line"'))->toBe(2);
+
+    $tela->call('toggleCard', $card->id)->assertDontSeeHtml('data-testid="card-lines"');
+});
+
+it('a busca encontra o cartão pelo nome de uma compra', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'SHEIN', 'amount_cents' => 12000]);
+
+    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->set('search', 'shein')->assertSee('Cartão Nubank');
+});
