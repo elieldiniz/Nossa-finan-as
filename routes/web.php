@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Cards\CardDetail;
 use App\Livewire\Cards\CardsPage;
 use App\Livewire\Categories\CategoriesPage;
 use App\Livewire\Charts\ChartsPage;
@@ -27,6 +28,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('lancar', EntryForm::class)->name('entry.create');
     Route::get('lancamentos/{entry}', EditEntry::class)->name('entry.show');
     Route::get('cartoes', CardsPage::class)->name('cards');
+    Route::get('cartoes/{card}', CardDetail::class)->name('cards.show');
     Route::get('pessoas', PeoplePage::class)->name('people');
     Route::get('vale', ValePage::class)->name('vale');
     Route::get('recorrentes', RecurringPage::class)->name('recurring');

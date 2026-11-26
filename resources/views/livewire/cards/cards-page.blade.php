@@ -3,11 +3,11 @@
     <x-month-header :month="$this->monthDate()" :view="$view" title="Cartões" subtitle="Cadastre uma vez: valem para todos os meses" />
 
     <div class="grid gap-4 lg:grid-cols-2">
-        @foreach ($summary['cards'] as $c)
-            <section class="nf-card p-5" wire:key="card-{{ $c['card']->id }}" aria-label="Cartão {{ $c['card']->name }}" data-testid="card-{{ $c['card']->id }}">
+        @forelse ($summary['cards'] as $c)
+            <a href="{{ route('cards.show', ['card' => $c['card']->id, 'm' => $month, 'v' => $view]) }}" wire:navigate wire:key="card-{{ $c['card']->id }}" class="nf-card block p-5" aria-label="Abrir cartão {{ $c['card']->name }}" data-testid="card-{{ $c['card']->id }}">
                 <div class="flex items-center gap-3">
                     <span class="flex size-11 items-center justify-center rounded-2xl bg-ink text-lime"><x-nav.icon name="card" /></span>
-                    <div class="flex-1"><h2 class="text-base font-extrabold">{{ $c['card']->name }}</h2><p class="text-xs text-muted">{{ $isFuture ? 'Fatura prevista' : 'Fatura do mês' }}@if ($c['card']->due_day) · vence dia {{ $c['card']->due_day }}@endif</p></div>
+                    <div class="min-w-0 flex-1"><h2 class="truncate text-base font-extrabold">{{ $c['card']->name }}</h2><p class="text-xs text-muted">{{ $isFuture ? 'Fatura prevista' : 'Fatura do mês' }}@if ($c['card']->due_day) · vence dia {{ $c['card']->due_day }}@endif</p></div>
                     <span class="text-lg font-extrabold" data-testid="invoice-total">{{ Money::format($c['total']) }}</span>
                 </div>
 
@@ -17,28 +17,14 @@
                     <p class="mt-1 text-xs text-muted">{{ $used }}% do limite de {{ Money::format($c['card']->limit_cents) }}</p>
                 @endif
 
-                <div class="mt-2">
-                    @forelse ($c['lines'] as $line)
-                        <a href="{{ route('entry.show', $line->id) }}" wire:navigate class="nf-row">
-                            <span class="flex-1 text-sm font-bold">{{ $line->name }}@if ($line->installment_label) <span class="text-xs font-semibold text-muted">· parcela {{ $line->installment_label }}</span>@elseif ($line->recurrence_id) <span class="text-xs font-semibold text-muted">· todo mês</span>@endif</span>
-                            <span class="text-sm font-extrabold">{{ Money::format($line->amount_cents) }}</span>
-                        </a>
-                    @empty
-                        <p class="py-2 text-sm text-muted">Sem lançamentos neste mês.</p>
-                    @endforelse
+                <div class="mt-3 flex items-center justify-between text-sm">
+                    <span class="font-semibold text-muted" data-testid="card-count">{{ $c['lines']->count() }} {{ $c['lines']->count() === 1 ? 'compra' : 'compras' }}@if ($c['paid']) · fatura paga ✓ @endif</span>
+                    <span class="font-bold text-brand">Abrir ›</span>
                 </div>
-
-                <div class="mt-3 flex flex-wrap gap-2">
-                    <a href="{{ route('entry.create', ['cartao' => $c['card']->id, 'r' => 'installments', 'm' => $month]) }}" wire:navigate class="nf-chip !bg-lime !text-ink">+ Parcelado</a>
-                    <a href="{{ route('entry.create', ['cartao' => $c['card']->id, 'r' => 'monthly', 'm' => $month]) }}" wire:navigate class="nf-chip">+ Fixo</a>
-                    @if ($c['total'] > 0)
-                        <button type="button" wire:click="toggleInvoice({{ $c['card']->id }})" class="nf-chip">{{ $c['paid'] ? 'Fatura paga ✓' : 'Marcar fatura paga' }}</button>
-                    @endif
-                    <button type="button" wire:click="edit({{ $c['card']->id }})" class="nf-chip">Editar</button>
-                    <button type="button" wire:click="remove({{ $c['card']->id }})" wire:confirm="Excluir este cartão?" class="nf-chip !text-neg">Excluir</button>
-                </div>
-            </section>
-        @endforeach
+            </a>
+        @empty
+            <p class="nf-card p-5 text-sm text-muted">Nenhum cartão cadastrado ainda. Cadastre abaixo.</p>
+        @endforelse
     </div>
 
     <form wire:submit="addCard" class="nf-card flex flex-col gap-3 p-5" aria-label="{{ $editingId ? 'Editar cartão' : 'Novo cartão' }}">

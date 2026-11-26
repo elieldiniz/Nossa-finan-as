@@ -43,7 +43,7 @@ it('marcar fatura paga persiste', function () {
     $tela = Livewire::actingAs($eliel)->test(CardsPage::class)->set('month', '2026-09')->call('toggleInvoice', $card->id);
 
     expect(CardInvoice::first()->paid)->toBeTrue();
-    $tela->assertSee('Fatura paga');
+    $tela->assertSee('fatura paga');
 });
 
 it('o par também edita cartões (cadastro compartilhado)', function () {

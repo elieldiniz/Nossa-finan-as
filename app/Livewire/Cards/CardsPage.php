@@ -10,6 +10,7 @@ use App\Support\Money;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
@@ -29,7 +30,15 @@ class CardsPage extends Component
 
     public string $limit = '';
 
+    #[Url(as: 'editar')]
     public ?int $editingId = null;
+
+    public function mount(): void
+    {
+        if ($this->editingId) {
+            $this->edit($this->editingId);
+        }
+    }
 
     public function addCard(): void
     {
