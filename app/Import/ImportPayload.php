@@ -28,13 +28,17 @@ final class ImportPayload
 
     public function cardTotal(array $card): int
     {
-        return array_sum(array_column($card['lines'], 'amount'));
+        return array_sum(array_column(array_filter($card['lines'], fn ($l) => empty($l['skip'])), 'amount'));
     }
 
     public function personNet(array $person): int
     {
         $net = 0;
         foreach ($person['debts'] as $debt) {
+            if (! empty($debt['skip'])) {
+                continue;
+            }
+
             $net += $debt['direction'] === 'receber' ? $debt['amount'] : -$debt['amount'];
         }
 
@@ -45,7 +49,7 @@ final class ImportPayload
     public function closing(): ClosingResult
     {
         return MonthClosing::calculate(
-            array_map(fn ($e) => ['type' => $e['type'], 'amount' => $e['amount']], $this->entries),
+            array_map(fn ($e) => ['type' => $e['type'], 'amount' => $e['amount']], array_filter($this->entries, fn ($e) => empty($e['skip']))),
             array_map(fn ($c) => $this->cardTotal($c), $this->cards),
             array_map(fn ($p) => $this->personNet($p), $this->people),
         );
@@ -54,26 +58,27 @@ final class ImportPayload
     /**
      * Itens que têm dono (trocável na prévia). A chave é estável: e0, c0l1, p0d2, v0 (gasto do vale).
      *
-     * @return array<string, array{section: string, label: string, amount: int}>
+     * @return array<string, array{section: string, label: string, name: string, amount: int, type: string, skip: bool, note?: ?string}>
      */
     public function items(): array
     {
         $items = [];
         foreach ($this->entries as $i => $e) {
-            $items["e{$i}"] = ['section' => $e['type'] === 'entrada' ? 'Entradas' : 'Saídas', 'label' => $e['name'], 'amount' => $e['amount']];
+            $items["e{$i}"] = ['section' => $e['type'] === 'entrada' ? 'Entradas' : 'Saídas', 'label' => $e['name'], 'name' => $e['name'], 'amount' => $e['amount'], 'type' => $e['type'], 'skip' => ! empty($e['skip'])];
         }
         foreach ($this->cards as $ci => $card) {
             foreach ($card['lines'] as $li => $line) {
-                $items["c{$ci}l{$li}"] = ['section' => 'Cartão '.$card['name'], 'label' => $line['name'], 'amount' => $line['amount']];
+                $items["c{$ci}l{$li}"] = ['section' => 'Cartão '.$card['name'], 'label' => $line['name'], 'name' => $line['name'], 'amount' => $line['amount'], 'type' => 'cartao', 'skip' => ! empty($line['skip']),
+                    'note' => $line['installment'] ? 'parcela '.$line['installment'][0].'/'.$line['installment'][1] : (! empty($line['ends_on']) ? 'até '.substr($line['ends_on'], 5, 2).'/'.substr($line['ends_on'], 0, 4) : ($line['kind'] === 'fixo' ? 'todo mês' : null))];
             }
         }
         foreach ($this->people as $pi => $person) {
             foreach ($person['debts'] as $di => $debt) {
-                $items["p{$pi}d{$di}"] = ['section' => $person['name'], 'label' => ($debt['direction'] === 'pagar' ? 'Pagar' : 'Receber').($debt['name'] !== '' ? ' · '.$debt['name'] : ''), 'amount' => $debt['amount']];
+                $items["p{$pi}d{$di}"] = ['section' => $person['name'], 'label' => ($debt['direction'] === 'pagar' ? 'Pagar' : 'Receber').($debt['name'] !== '' ? ' · '.$debt['name'] : ''), 'name' => $debt['name'], 'amount' => $debt['amount'], 'type' => 'pessoa', 'skip' => ! empty($debt['skip'])];
             }
         }
         foreach ($this->vale['spends'] ?? [] as $si => $spend) {
-            $items["v{$si}"] = ['section' => 'Vale', 'label' => $spend['name'], 'amount' => $spend['amount']];
+            $items["v{$si}"] = ['section' => 'Vale', 'label' => $spend['name'], 'name' => $spend['name'], 'amount' => $spend['amount'], 'type' => 'vale', 'skip' => ! empty($spend['skip'])];
         }
 
         return $items;

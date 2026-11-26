@@ -57,13 +57,33 @@
 
         @foreach ($preview->warnings as $warning) <p class="rounded-2xl bg-[#FFF1D6] px-4 py-2 text-sm font-semibold text-[#6B4600]" data-testid="warning">{{ $warning }}</p> @endforeach
 
-        <section class="nf-card px-5 py-2" aria-label="Itens e donos">
-            <p class="py-2 text-xs text-muted">Por padrão tudo fica no seu nome. Troque o dono de cada item se precisar.</p>
+        <section class="nf-card p-3" aria-label="Itens" data-testid="items">
+            <div class="flex items-center justify-between px-2 pb-1">
+                <div><h2 class="text-base font-extrabold">Itens</h2><p class="text-xs text-muted">Desmarque o que não quer importar e ajuste nome, valor, categoria e dono.</p></div>
+                <span class="flex shrink-0 gap-2"><button type="button" wire:click="selectAll(true)" class="text-xs font-bold text-brand">Marcar todos</button><button type="button" wire:click="selectAll(false)" class="text-xs font-bold text-muted">Limpar</button></span>
+            </div>
+            @php $secao = null; @endphp
             @forelse ($items as $key => $item)
-                <div class="nf-row" wire:key="item-{{ $key }}"><span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold">{{ $item['label'] }}</span><span class="text-xs text-muted">{{ $item['section'] }}</span></span><span class="text-sm font-extrabold">{{ Money::format($item['amount']) }}</span>
-                    <select wire:model="owners.{{ $key }}" aria-label="Dono de {{ $item['label'] }}" class="nf-input !min-h-10 !w-28">@foreach ($members as $m)<option value="{{ $m->id }}">{{ $m->name }}</option>@endforeach</select></div>
+                @if ($item['section'] !== $secao)
+                    @php $secao = $item['section']; @endphp
+                    <p class="px-2 pb-1 pt-3 text-xs font-extrabold uppercase tracking-wide text-muted">{{ $secao }}</p>
+                @endif
+                <div class="nf-row flex-wrap {{ $item['skip'] ? 'opacity-50' : '' }}" wire:key="item-{{ $key }}" data-testid="item">
+                    <input type="checkbox" wire:model.live="edits.{{ $key }}.include" aria-label="Importar {{ $item['label'] }}" class="size-5 shrink-0 accent-brand" data-testid="item-include" />
+                    <input type="text" wire:model.blur="edits.{{ $key }}.name" aria-label="Nome" class="nf-input !min-h-10 min-w-0 flex-1 !text-sm" />
+                    <input type="text" inputmode="decimal" wire:model.blur="edits.{{ $key }}.amount" aria-label="Valor de {{ $item['label'] }}" x-data="moneyInput" x-on:blur="format($el)" class="nf-input !min-h-10 !w-28 !text-right !text-sm" />
+                    <div class="flex w-full items-center gap-2 pl-7">
+                        @if (in_array($item['type'], ['entrada', 'saida', 'cartao'], true))
+                            <select wire:model="edits.{{ $key }}.category_id" aria-label="Categoria de {{ $item['label'] }}" class="nf-input !min-h-9 min-w-0 flex-1 !py-1 !text-sm">@foreach (($item['type'] === 'entrada' ? $catEntrada : $catSaida) as $cat)<option value="{{ $cat->id }}">{{ $cat->name }}</option>@endforeach</select>
+                        @else
+                            <span class="min-w-0 flex-1 text-xs text-muted">{{ $item['label'] }}</span>
+                        @endif
+                        @if (! empty($item['note'])) <span class="shrink-0 text-xs font-bold text-brand">{{ $item['note'] }}</span> @endif
+                        <select wire:model="owners.{{ $key }}" aria-label="Dono de {{ $item['label'] }}" class="nf-input !min-h-9 !w-24 shrink-0 !py-1 !text-sm">@foreach ($members as $m)<option value="{{ $m->id }}">{{ $m->name }}</option>@endforeach</select>
+                    </div>
+                </div>
             @empty
-                <p class="py-4 text-sm text-muted">Nenhum lançamento para trocar de dono.</p>
+                <p class="py-4 text-sm text-muted">Nenhum item para importar.</p>
             @endforelse
         </section>
 

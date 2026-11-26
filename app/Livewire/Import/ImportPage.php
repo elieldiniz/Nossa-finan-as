@@ -4,11 +4,14 @@ namespace App\Livewire\Import;
 
 use App\Import\ImportPayload;
 use App\Import\InvalidImportFile;
+use App\Import\OfxCategorizer;
 use App\Import\OrcMesImport;
 use App\Models\Card;
+use App\Models\Category;
 use App\Models\Entry;
 use App\Models\User;
 use App\Services\ImportService;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -41,6 +44,9 @@ class ImportPage extends Component
 
     /** @var array<string, int> */
     public array $owners = [];
+
+    /** Ajustes de cada item na prévia (chave: e0, c0l1, p0d2, v0): include, name, amount (texto), category_id. @var array<string, array<string, mixed>> */
+    public array $edits = [];
 
     /** Cartão já cadastrado para cada cartão da planilha (índice => id; vazio = criar novo). @var array<int, int|string|null> */
     public array $cardMap = [];
@@ -133,6 +139,7 @@ class ImportPage extends Component
 
         $this->payload = $payload->toArray();
         $this->owners = array_fill_keys(array_keys($payload->items()), auth()->id());
+        $this->buildEdits($payload);
         $this->dueDays = [];
         $this->cardMap = [];
         $existing = Card::orderBy('name')->get();
@@ -141,6 +148,95 @@ class ImportPage extends Component
             $this->cardMap[$ci] = $match?->id;
             // o vencimento escrito na planilha ("Sicoob - vence dia 3") vale; senão o que o cartão já tem
             $this->dueDays[$ci] = $card['due_day'] ?? $match?->due_day;
+        }
+    }
+
+    /** Um ajuste por item: entra (sim), nome, valor e categoria sugerida pelo nome (a pessoa troca se quiser). */
+    private function buildEdits(ImportPayload $payload): void
+    {
+        $saida = Category::forKind('saida')->get()->keyBy('name');
+        $entrada = Category::forKind('entrada')->get()->keyBy('name');
+        $outros = Category::where('name', 'Outros')->value('id');
+        $this->edits = [];
+
+        foreach ($payload->items() as $key => $item) {
+            $category = match ($item['type']) {
+                'entrada' => ($entrada[str_contains(mb_strtolower($item['name']), 'sal') ? 'Salário' : 'Outros'] ?? $entrada->first())?->id ?? $outros,
+                'saida', 'cartao' => ($saida[OfxCategorizer::suggest($item['name'])] ?? null)?->id ?? $outros,
+                default => null,
+            };
+
+            $this->edits[$key] = ['include' => true, 'name' => $item['name'], 'amount' => Money::format($item['amount']), 'category_id' => $category];
+        }
+    }
+
+    /** O que será gravado: a leitura da planilha com os ajustes da prévia aplicados (itens desmarcados ficam de fora). */
+    private function effective(): ?ImportPayload
+    {
+        if ($this->payload === null) {
+            return null;
+        }
+
+        $d = $this->payload;
+        $apply = function (array $row, string $key) {
+            $edit = $this->edits[$key] ?? null;
+
+            if ($edit === null) {
+                return $row;
+            }
+
+            $row['skip'] = ! ($edit['include'] ?? true);
+            $name = trim((string) ($edit['name'] ?? ''));
+            $row['name'] = $name !== '' ? $name : $row['name'];
+
+            try {
+                $amount = Money::parse((string) ($edit['amount'] ?? ''));
+                $row['amount'] = $amount > 0 ? $amount : $row['amount'];
+                $row['amount_invalid'] = $amount <= 0;
+            } catch (InvalidArgumentException) {
+                $row['amount_invalid'] = true;
+            }
+
+            if (! empty($edit['category_id'])) {
+                $row['category_id'] = (int) $edit['category_id'];
+            }
+
+            return $row;
+        };
+
+        foreach ($d['entries'] as $i => $e) {
+            $d['entries'][$i] = $apply($e, "e{$i}");
+        }
+        foreach ($d['cards'] as $ci => $card) {
+            foreach ($card['lines'] as $li => $line) {
+                $d['cards'][$ci]['lines'][$li] = $apply($line, "c{$ci}l{$li}");
+            }
+        }
+        foreach ($d['people'] as $pi => $person) {
+            foreach ($person['debts'] as $di => $debt) {
+                $d['people'][$pi]['debts'][$di] = $apply($debt, "p{$pi}d{$di}");
+            }
+        }
+        foreach ($d['vale']['spends'] ?? [] as $si => $spend) {
+            $d['vale']['spends'][$si] = $apply($spend, "v{$si}");
+        }
+
+        return ImportPayload::fromArray($d);
+    }
+
+    private function amountInvalid(string $key): bool
+    {
+        try {
+            return Money::parse((string) ($this->edits[$key]['amount'] ?? '')) <= 0;
+        } catch (InvalidArgumentException) {
+            return true;
+        }
+    }
+
+    public function selectAll(bool $on): void
+    {
+        foreach ($this->edits as $key => $edit) {
+            $this->edits[$key]['include'] = $on;
         }
     }
 
@@ -172,8 +268,24 @@ class ImportPage extends Component
             return;
         }
 
+        $effective = $this->effective();
+
+        foreach ($effective->items() as $key => $item) {
+            if (! $item['skip'] && $this->amountInvalid($key)) {
+                $this->error = "Valor inválido em “{$item['name']}”. Informe um valor maior que zero.";
+
+                return;
+            }
+        }
+
+        if (collect($effective->items())->every(fn ($i) => $i['skip'])) {
+            $this->error = 'Marque ao menos um item para importar.';
+
+            return;
+        }
+
         try {
-            $counts = $service->import(auth()->user(), ImportPayload::fromArray($this->payload), $this->monthDate(), $this->owners, array_map(fn ($d) => $d === '' || $d === null ? null : (int) $d, $this->dueDays), $this->cardMap);
+            $counts = $service->import(auth()->user(), $effective, $this->monthDate(), $this->owners, array_map(fn ($d) => $d === '' || $d === null ? null : (int) $d, $this->dueDays), $this->cardMap);
         } catch (InvalidArgumentException $e) {
             $this->error = $e->getMessage();
 
@@ -217,7 +329,7 @@ class ImportPage extends Component
 
     public function render()
     {
-        $payload = $this->payload ? ImportPayload::fromArray($this->payload) : null;
+        $payload = $this->effective();
 
         return view('livewire.import.import-page', [
             'preview' => $payload,
@@ -225,6 +337,8 @@ class ImportPage extends Component
             'closing' => $payload?->closing(),
             'members' => User::where('couple_id', auth()->user()->couple_id)->orderBy('id')->get(),
             'cards' => Card::orderBy('name')->get(),
+            'catSaida' => Category::forKind('saida')->orderBy('position')->get(),
+            'catEntrada' => Category::forKind('entrada')->orderBy('position')->get(),
         ]);
     }
 }

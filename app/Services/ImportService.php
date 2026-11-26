@@ -60,8 +60,14 @@ class ImportService
             $outros = Category::where('name', 'Outros')->first() ?? Category::orderBy('position')->firstOrFail();
             $counts = ['entries' => 0, 'cards' => 0, 'recurrences' => 0, 'debts' => 0, 'vale_spends' => 0];
 
+            $categoryOf = fn (array $row) => ! empty($row['category_id']) && ($c = Category::find((int) $row['category_id'])) ? $c->id : $outros->id;
+
             foreach ($payload->entries as $i => $e) {
-                $this->entry($actor, $ownerOf("e{$i}"), $e['type'], $e['name'], $e['amount'], $month, $outros->id, null, $e['paid']);
+                if (! empty($e['skip'])) {
+                    continue;
+                }
+
+                $this->entry($actor, $ownerOf("e{$i}"), $e['type'], $e['name'], $e['amount'], $month, $categoryOf($e), null, $e['paid']);
                 $counts['entries']++;
             }
 
@@ -76,7 +82,12 @@ class ImportService
                 }
 
                 foreach ($card['lines'] as $li => $line) {
+                    if (! empty($line['skip'])) {
+                        continue;
+                    }
+
                     $owner = $ownerOf("c{$ci}l{$li}");
+                    $lineCategory = $categoryOf($line);
                     $recurrence = null;
 
                     $endsOn = ! empty($line['ends_on']) ? CarbonImmutable::parse($line['ends_on']) : null;
@@ -84,14 +95,14 @@ class ImportService
                     if ($line['kind'] === 'fixo' && $endsOn !== null && $endsOn->lessThan($month)) {
                         $recurrence = null; // a última parcela já passou: entra só como lançamento deste mês
                     } elseif ($line['kind'] === 'fixo') {
-                        $recurrence = $this->recurrence($actor, $owner, $line['name'], $line['amount'], $month, $outros->id, $model->id, 'monthly', null, $endsOn);
+                        $recurrence = $this->recurrence($actor, $owner, $line['name'], $line['amount'], $month, $lineCategory, $model->id, 'monthly', null, $endsOn);
                     } elseif ($line['kind'] === 'parcelado') {
                         [$k, $n] = $line['installment'];
-                        $recurrence = $this->recurrence($actor, $owner, $line['name'], $line['amount'], $month->subMonths($k - 1), $outros->id, $model->id, 'installments', $n);
+                        $recurrence = $this->recurrence($actor, $owner, $line['name'], $line['amount'], $month->subMonths($k - 1), $lineCategory, $model->id, 'installments', $n);
                     }
 
                     $counts['recurrences'] += $recurrence ? 1 : 0;
-                    $this->entry($actor, $owner, 'saida', $line['name'], $line['amount'], $month, $outros->id, $model->id, false, $recurrence?->id,
+                    $this->entry($actor, $owner, 'saida', $line['name'], $line['amount'], $month, $lineCategory, $model->id, false, $recurrence?->id,
                         $line['kind'] === 'parcelado' ? $line['installment'][0].'/'.$line['installment'][1] : null);
                     $counts['entries']++;
                 }
@@ -101,6 +112,10 @@ class ImportService
                 $person = Person::whereRaw('lower(name) = ?', [mb_strtolower($p['name'])])->first() ?? $this->newPerson($actor, $p['name']);
 
                 foreach ($p['debts'] as $di => $debt) {
+                    if (! empty($debt['skip'])) {
+                        continue;
+                    }
+
                     $model = new PersonDebt([
                         'person_id' => $person->id, 'owner_id' => $ownerOf("p{$pi}d{$di}"), 'direction' => $debt['direction'],
                         'description' => $debt['name'] ?: null, 'amount_cents' => $debt['amount'], 'created_month' => $month->toDateString(),
@@ -118,6 +133,10 @@ class ImportService
                 $vale->save();
 
                 foreach ($payload->vale['spends'] as $si => $spend) {
+                    if (! empty($spend['skip'])) {
+                        continue;
+                    }
+
                     $model = new ValeSpend(['vale_id' => $vale->id, 'owner_id' => $ownerOf("v{$si}"), 'name' => $spend['name'], 'amount_cents' => $spend['amount'], 'month' => $month->toDateString()]);
                     $model->couple_id = $actor->couple_id;
                     $model->save();

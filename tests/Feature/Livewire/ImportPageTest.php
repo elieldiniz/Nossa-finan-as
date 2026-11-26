@@ -165,3 +165,54 @@ it('não aceita mapear para um cartão de outro casal', function () {
 
     expect(Entry::where('card_id', $alheio->id)->count())->toBe(0)->and(Card::withoutGlobalScopes()->where('name', 'Bradesco')->exists())->toBeTrue();
 });
+
+it('prévia: cada item tem caixinha, nome, valor e categoria; categoria é sugerida pelo nome', function () {
+    [$eliel] = makeCouple();
+
+    $tela = Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->assertSeeHtml('data-testid="items"')->assertSeeHtml('data-testid="item-include"');
+
+    expect(count($tela->get('edits')))->toBeGreaterThan(3)
+        ->and($tela->get('edits.c0l0.include'))->toBeTrue();
+});
+
+it('desmarcar itens tira da importação e do total da prévia', function () {
+    [$eliel] = makeCouple();
+
+    $tela = Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->assertSeeHtml('data-testid="preview-card">R$ 600,00<')
+        ->set('edits.c0l0.include', false)->assertSeeHtml('data-testid="preview-card">R$ 300,00<');
+
+    $tela->call('confirm');
+
+    expect(Entry::count())->toBe(1); // das 2 compras fixas do Bradesco sobrou 1
+});
+
+it('editar nome, valor e categoria vale na gravação', function () {
+    [$eliel] = makeCouple();
+    $lazer = categoryOf($eliel->couple_id, 'Lazer')->id;
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->set('edits.c0l0.name', 'Netflix')->set('edits.c0l0.amount', '45,90')->set('edits.c0l0.category_id', $lazer)->call('confirm');
+
+    $e = Entry::where('name', 'Netflix')->first();
+    expect($e)->not->toBeNull()->and($e->amount_cents)->toBe(4590)->and($e->category_id)->toBe($lazer);
+});
+
+it('valor inválido num item mostra erro claro e não grava nada', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->set('edits.c0l0.amount', 'abc')->call('confirm')->assertSee('Valor inválido em');
+
+    expect(Entry::count())->toBe(0);
+});
+
+it('desmarcar tudo não deixa importar', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->call('selectAll', false)->call('confirm')->assertSee('Marque ao menos um item');
+
+    expect(Entry::count())->toBe(0);
+});
