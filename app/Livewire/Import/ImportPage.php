@@ -131,7 +131,8 @@ class ImportPage extends Component
         $this->owners = array_fill_keys(array_keys($payload->items()), auth()->id());
         $this->dueDays = [];
         foreach ($payload->cards as $ci => $card) {
-            $this->dueDays[$ci] = Card::whereRaw('lower(name) = ?', [mb_strtolower($card['name'])])->value('due_day');
+            // o vencimento escrito na planilha ("Sicoob - vence dia 3") vale; senão o que o cartão já tem
+            $this->dueDays[$ci] = $card['due_day'] ?? Card::whereRaw('lower(name) = ?', [mb_strtolower($card['name'])])->value('due_day');
         }
     }
 

@@ -3,6 +3,8 @@
 use App\Import\InvalidImportFile;
 use App\Import\OrcMesImport;
 use App\Support\Money;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\RichText\RichText;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\Fixtures\OrcMesFixture;
@@ -158,4 +160,41 @@ it('o erro lista as abas encontradas para a pessoa saber o que ajustar', functio
     (new Xlsx($book))->save($path);
 
     expect(fn () => (new OrcMesImport)->parse($path))->toThrow(InvalidImportFile::class, 'Abas encontradas no arquivo: "Resumo", "Gráficos"');
+});
+
+it('lê o vencimento escrito no nome do cartão: "Sicoob - vence dia 3"', function () {
+    $path = OrcMesFixture::variosMeses();
+    $book = IOFactory::load($path);
+    foreach ($book->getAllSheets() as $sheet) {
+        $sheet->setCellValue('F4', 'Sicoob - vence dia 3')->setCellValue('F15', 'Nubank (vence dia 4)');
+    }
+    $novo = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
+    (new Xlsx($book))->save($novo);
+
+    $p = (new OrcMesImport)->parse($novo, 'Orç - Mês Outubro');
+
+    expect(array_column($p->cards, 'name'))->toBe(['Sicoob', 'Nubank'])->and(array_column($p->cards, 'due_day'))->toBe([3, 4])
+        ->and(array_sum(array_column($p->cards[0]['lines'], 'amount')))->toBe(16500); // as compras continuam sendo lidas
+});
+
+it('cartão sem vencimento no nome fica sem dia (null)', function () {
+    $p = (new OrcMesImport)->parse(OrcMesFixture::variosMeses(), 'Orç - Mês Outubro');
+
+    expect(array_column($p->cards, 'due_day'))->toBe([null, null]);
+});
+
+it('lê texto com formatação parcial (rich text) como texto comum', function () {
+    $book = IOFactory::load(OrcMesFixture::setembro());
+    $sheet = $book->getActiveSheet();
+    foreach (['B4' => 'Entradas', 'B18' => 'Saídas', 'B32' => 'FECHAMENTO DO MÊS', 'F4' => 'Bradesco - vence dia 12'] as $cell => $texto) {
+        $rich = new RichText;
+        $rich->createText($texto);
+        $sheet->getCell($cell)->setValue($rich);
+    }
+    $path = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
+    (new Xlsx($book))->save($path);
+
+    $p = (new OrcMesImport)->parse($path);
+
+    expect($p->cards[0]['name'])->toBe('Bradesco')->and($p->cards[0]['due_day'])->toBe(12)->and($p->detectedMonth)->toBe(9);
 });

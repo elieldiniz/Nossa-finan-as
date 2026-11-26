@@ -68,7 +68,7 @@ class ImportService
                 $model = Card::whereRaw('lower(name) = ?', [mb_strtolower($card['name'])])->first() ?? $this->newCard($actor, $card['name']);
                 $counts['cards']++;
 
-                $day = (int) ($dueDays[$ci] ?? 0);
+                $day = (int) ($dueDays[$ci] ?? $card['due_day'] ?? 0);
                 if ($day >= 1 && $day <= 31 && $model->due_day !== $day) {
                     $model->update(['due_day' => $day]);
                 }

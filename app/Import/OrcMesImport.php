@@ -5,6 +5,7 @@ namespace App\Import;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\RichText\RichText;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Throwable;
@@ -180,7 +181,8 @@ final class OrcMesImport
 
             // nome de cartão: texto em F, sem nome nem valor ao lado
             if ($date === null && $label !== '' && $name === '' && ($amount === null || $amount <= 0) && ! in_array($lower, self::NOT_A_CARD, true)) {
-                $cards[] = ['name' => $label, 'lines' => []];
+                [$cardName, $dueDay] = $this->splitCardName($label);
+                $cards[] = ['name' => $cardName, 'due_day' => $dueDay, 'lines' => []];
                 $current = array_key_last($cards);
                 $section = null;
                 $group = false;
@@ -243,6 +245,16 @@ final class OrcMesImport
         }
 
         return ['kind' => $kind, 'name' => $name !== '' ? $name : ($kind === 'fixo' ? 'Fixo' : 'Lançamento'), 'amount' => $amount, 'installment' => $installment, 'ends_on' => $endsOn];
+    }
+
+    /** "Sicoob - vence dia 3" → ['Sicoob', 3]; sem a parte do vencimento → [nome, null]. */
+    private function splitCardName(string $label): array
+    {
+        if (preg_match('#^(.*?)\s*[-–—·(]*\s*vence\s*(?:dia)?\s*(\d{1,2})\s*\)?\s*$#iu', $label, $m) && trim($m[1]) !== '' && (int) $m[2] >= 1 && (int) $m[2] <= 31) {
+            return [trim($m[1], ' -–—·('), (int) $m[2]];
+        }
+
+        return [$label, null];
     }
 
     /** Data na célula (data de verdade ou número de série do Excel); null se não for data. */
@@ -343,7 +355,10 @@ final class OrcMesImport
         $cell = $this->sheet->getCell($col.$row);
 
         try {
-            return $cell->isFormula() ? $cell->getCalculatedValue() : $cell->getValue();
+            $value = $cell->isFormula() ? $cell->getCalculatedValue() : $cell->getValue();
+
+            // texto com formatação parcial (negrito em parte do texto etc.) vem como RichText: usa o texto puro
+            return $value instanceof RichText ? $value->getPlainText() : $value;
         } catch (Throwable) {
             return null;
         }

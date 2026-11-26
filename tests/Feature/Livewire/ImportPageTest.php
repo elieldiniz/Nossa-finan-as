@@ -5,6 +5,7 @@ use App\Models\Card;
 use App\Models\Entry;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\Fixtures\OrcMesFixture;
@@ -108,4 +109,18 @@ it('planilha com a aba chamada "Planilha1" (nome diferente) importa normalmente'
 
     Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo(OrcMesFixture::setembro(['sheet' => 'Planilha1'])))->call('preview')
         ->assertHasNoErrors()->assertSeeHtml('data-testid="preview"')->assertSee('Bradesco');
+});
+
+it('planilha com "Sicoob - vence dia 3": o dia vem preenchido na prévia e grava no cartão', function () {
+    [$eliel] = makeCouple();
+    $book = IOFactory::load(OrcMesFixture::setembro());
+    $book->getActiveSheet()->setCellValue('F4', 'Bradesco - vence dia 12');
+    $path = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
+    (new Xlsx($book))->save($path);
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo($path))->call('preview')
+        ->assertSet('dueDays.0', 12)->call('confirm');
+
+    $card = Card::where('name', 'Bradesco')->first();
+    expect($card)->not->toBeNull()->and($card->due_day)->toBe(12);
 });
