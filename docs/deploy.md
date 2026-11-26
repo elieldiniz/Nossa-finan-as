@@ -66,3 +66,13 @@ Trocar a `APP_KEY` encerra todas as sessões e invalida links de convite pendent
 1. Abrir `https://seu-dominio/login` (responde 200 e é HTTPS).
 2. Criar a conta, convidar o par e aceitar o convite.
 3. Lançar uma saída, conferir o fechamento no Início e **Sair**.
+
+## Avisos de vencimento por e-mail (opcional)
+
+O sininho do app funciona sozinho. Para também receber o **e-mail do dia** com as contas que vencem hoje:
+
+1. O envio de e-mail precisa estar configurado (`MAIL_*` no ambiente, por exemplo o SMTP da Brevo).
+2. O servidor precisa rodar o agendador do Laravel: ative o **Scheduler** do host ou coloque no cron `* * * * * php artisan schedule:run`.
+3. O comando `contas:avisar` roda todo dia às 07:30 (fuso `America/Sao_Paulo`). Para testar na hora: `php artisan contas:avisar`.
+
+Cada pessoa liga ou desliga o e-mail no próprio sininho ("Avisar também por e-mail"). A migration `add_notify_email_to_users` e a tabela `notifications` entram no `php artisan migrate --force` normal.

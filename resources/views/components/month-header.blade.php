@@ -6,12 +6,15 @@
     $options = [['nos', 'Nós'], ['eu', $me->firstName()], ['par', $partner?->firstName() ?? 'Par']];
 @endphp
 <header class="mb-4">
-    @if ($title)
-        <div class="mb-3">
-            <h1 class="text-2xl font-extrabold">{{ $title }}</h1>
-            @if ($subtitle) <p class="text-sm text-muted">{{ $subtitle }}</p> @endif
+    <div class="mb-3 flex items-start justify-between gap-3">
+        <div>
+            @if ($title)
+                <h1 class="text-2xl font-extrabold">{{ $title }}</h1>
+                @if ($subtitle) <p class="text-sm text-muted">{{ $subtitle }}</p> @endif
+            @endif
         </div>
-    @endif
+        <livewire:notification-bell />
+    </div>
 
     <div class="flex flex-wrap items-center gap-3">
         <div class="flex items-center gap-2">
