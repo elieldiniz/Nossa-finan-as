@@ -209,3 +209,72 @@ button:disabled {
         filter: brightness(.92);
     }
 }
+
+
+/* ===== Toque (celular): feedback imediato em tudo que dá para tocar ===== */
+html {
+    -webkit-tap-highlight-color: rgba(20, 97, 79, .12);
+}
+
+/* "afunda" um pouco enquanto o dedo está em cima */
+:where(button, a[href], summary, select, [role='tab'], [role='button'], label:has(input[type='checkbox'], input[type='radio'])):not(:disabled):active {
+    transform: scale(.97);
+}
+
+/* botão + e barra de baixo */
+a[class*='-mt-7']:active {
+    transform: scale(.92);
+    background: var(--color-brand-dark);
+}
+
+a.flex-col:active {
+    transform: scale(.92);
+    color: var(--color-brand);
+}
+
+/* linhas e cartões clicáveis: fundo verde-claro enquanto toca */
+a.nf-row:active,
+button.nf-row:active {
+    background: var(--color-brand-soft);
+    transform: none;
+}
+
+a.nf-card:active {
+    background: var(--color-brand-soft);
+    box-shadow: 0 1px 2px rgba(18, 33, 28, .06);
+}
+
+/* botões pequenos de ação (círculo de pago, Pago, Remover...) */
+.nf-row > button:not(:disabled):active,
+.nf-chip:not(:disabled):active,
+.nf-btn-ghost:active {
+    background: var(--color-brand-soft);
+    border-color: var(--color-brand);
+}
+
+.nf-btn:not(:disabled):active {
+    background: var(--color-brand-dark);
+    box-shadow: 0 6px 12px rgba(20, 97, 79, .3);
+}
+
+/* campos: destaca a borda assim que toca */
+.nf-input:active {
+    border-color: var(--color-brand);
+}
+
+/* abas ativas e botões redondos */
+[role='tab']:not(:disabled):active {
+    filter: brightness(.95);
+}
+
+/* itens do menu lateral e do "Mais" */
+:where(aside a, .nf-card a.nf-row):active {
+    background: rgba(20, 97, 79, .1);
+}
+
+/* quem prefere menos movimento: sem animação de encolher */
+@media (prefers-reduced-motion: reduce) {
+    :where(button, a[href], summary, select, [role='tab'], [role='button'], .nf-btn, .nf-chip, .nf-card):active {
+        transform: none !important;
+    }
+}
