@@ -15,10 +15,15 @@
             </label>
             @error('file') <p class="text-sm font-bold text-neg" data-testid="file-error">{{ $message }}</p> @enderror
 
+            @if (count($sheets) > 1)
+                <div><label for="sheet" class="nf-label">Qual aba importar?</label><select id="sheet" wire:model.live="sheet" class="nf-input" data-testid="sheet-select">@foreach ($sheets as $name)<option value="{{ $name }}">{{ $name }}</option>@endforeach</select>
+                    <p class="mt-1 text-xs text-muted">Sua planilha tem {{ count($sheets) }} meses. Importe um de cada vez; o mês de destino é sugerido pelo título da aba.</p></div>
+            @endif
             <div><label for="month" class="nf-label">Importar para o mês</label><input id="month" type="month" wire:model="month" class="nf-input" />@error('month') <p class="text-sm font-bold text-neg">{{ $message }}</p> @enderror</div>
 
             <p class="rounded-2xl bg-[#FFF1D6] px-4 py-3 text-sm font-medium text-[#6B4600]">Se o mês já tiver dados, a importação é recusada: limpe o mês antes ou escolha outro.</p>
             <button type="submit" class="nf-btn" wire:loading.attr="disabled">Ver prévia</button>
+            <a href="{{ route('import.ofx') }}" wire:navigate class="text-center text-sm font-bold text-brand">Importar fatura do cartão (.ofx) ›</a>
         </form>
     @else
         <section class="nf-hero p-6" aria-label="Prévia" data-testid="preview">

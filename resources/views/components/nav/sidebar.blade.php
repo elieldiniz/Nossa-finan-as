@@ -11,6 +11,7 @@
         ['report', 'Relatório', 'pie'],
         ['categories', 'Categorias', 'tag'],
         ['import', 'Importar planilha', 'upload'],
+        ['import.ofx', 'Importar fatura do cartão', 'card'],
         ['invite', 'Convidar par', 'invite'],
     ];
 @endphp

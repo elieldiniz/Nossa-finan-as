@@ -21,7 +21,7 @@ class Entry extends Model
     /** couple_id fica de fora de propósito: nunca vem do cliente. */
     protected $fillable = [
         'owner_id', 'kind', 'name', 'amount_cents', 'month', 'due_on', 'category_id', 'card_id',
-        'paid', 'joint', 'paid_by', 'recurrence_id', 'installment_label',
+        'paid', 'joint', 'paid_by', 'recurrence_id', 'installment_label', 'external_id',
     ];
 
     protected function casts(): array

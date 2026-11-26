@@ -96,3 +96,42 @@ it('processa uma planilha com 500 linhas em até 10 segundos', function () {
 
     expect(count($payload->entries))->toBe(500)->and((hrtime(true) - $inicio) / 1e9)->toBeLessThan(10.0);
 });
+
+it('planilha com várias abas "Orç - Mês <mês>": lista as abas e lê cada uma', function () {
+    $path = OrcMesFixture::variosMeses();
+    $import = new OrcMesImport;
+
+    expect($import->sheetNames($path))->toBe(['Orç - Mês Outubro', 'Orç - Mês Novembro']);
+
+    $outubro = $import->parse($path, 'Orç - Mês Outubro');
+    $novembro = $import->parse($path, 'Orç - Mês Novembro');
+    $primeira = $import->parse($path); // sem informar: a primeira aba
+
+    expect($outubro->detectedMonth)->toBe(9)->and($novembro->detectedMonth)->toBe(10)->and($primeira->detectedMonth)->toBe(9)
+        ->and(count($outubro->entries))->toBe(2); // Salário e Aluguel (o "Cartão Sicoob" é fórmula e fica de fora)
+});
+
+it('cartões sem linha de cabeçalho, datas, Recorrente, Compras a vista e Total', function () {
+    $p = (new OrcMesImport)->parse(OrcMesFixture::variosMeses(), 'Orç - Mês Outubro');
+
+    expect(array_column($p->cards, 'name'))->toBe(['Sicoob', 'Nubank'])->and($p->warnings)->toBe([]);
+
+    [$sicoob, $nubank] = $p->cards;
+    // as linhas "Total" não viram compra; o total do cartão bate com o da planilha
+    expect(array_sum(array_column($sicoob['lines'], 'amount')))->toBe(16500)->and(array_sum(array_column($nubank['lines'], 'amount')))->toBe(6000);
+
+    expect($sicoob['lines'][0])->toMatchArray(['name' => 'Armário', 'kind' => 'fixo', 'ends_on' => '2027-03-08'])
+        ->and($sicoob['lines'][1])->toMatchArray(['name' => 'Google Fotos', 'kind' => 'fixo', 'ends_on' => null])
+        ->and($nubank['lines'][0])->toMatchArray(['name' => 'Spotify', 'kind' => 'fixo'])
+        ->and($nubank['lines'][1])->toMatchArray(['name' => 'Padaria', 'kind' => 'avulso'])
+        ->and($nubank['lines'][2])->toMatchArray(['name' => 'Cinema', 'kind' => 'avulso']);
+});
+
+it('arquivo sem aba "Orç - Mês" dá um erro claro', function () {
+    $book = new Spreadsheet;
+    $book->getActiveSheet()->setTitle('Outra coisa');
+    $path = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
+    (new Xlsx($book))->save($path);
+
+    expect(fn () => (new OrcMesImport)->parse($path))->toThrow(InvalidImportFile::class, 'aba chamada');
+});

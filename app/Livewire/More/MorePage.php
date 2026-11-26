@@ -18,6 +18,7 @@ class MorePage extends Component
         ['goals', 'Metas e investimentos', 'target'],
         ['report', 'Relatório', 'pie'],
         ['import', 'Importar planilha', 'upload'],
+        ['import.ofx', 'Importar fatura do cartão', 'card'],
         ['categories', 'Categorias', 'tag'],
         ['invite', 'Convidar meu par', 'invite'],
     ];

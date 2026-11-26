@@ -69,8 +69,12 @@ class ImportService
                     $owner = $ownerOf("c{$ci}l{$li}");
                     $recurrence = null;
 
-                    if ($line['kind'] === 'fixo') {
-                        $recurrence = $this->recurrence($actor, $owner, $line['name'], $line['amount'], $month, $outros->id, $model->id, 'monthly');
+                    $endsOn = ! empty($line['ends_on']) ? CarbonImmutable::parse($line['ends_on']) : null;
+
+                    if ($line['kind'] === 'fixo' && $endsOn !== null && $endsOn->lessThan($month)) {
+                        $recurrence = null; // a última parcela já passou: entra só como lançamento deste mês
+                    } elseif ($line['kind'] === 'fixo') {
+                        $recurrence = $this->recurrence($actor, $owner, $line['name'], $line['amount'], $month, $outros->id, $model->id, 'monthly', null, $endsOn);
                     } elseif ($line['kind'] === 'parcelado') {
                         [$k, $n] = $line['installment'];
                         $recurrence = $this->recurrence($actor, $owner, $line['name'], $line['amount'], $month->subMonths($k - 1), $outros->id, $model->id, 'installments', $n);
@@ -128,11 +132,11 @@ class ImportService
         return $entry;
     }
 
-    private function recurrence(User $actor, int $owner, string $name, int $amount, CarbonImmutable $starts, int $categoryId, int $cardId, string $frequency, ?int $total = null): Recurrence
+    private function recurrence(User $actor, int $owner, string $name, int $amount, CarbonImmutable $starts, int $categoryId, int $cardId, string $frequency, ?int $total = null, ?CarbonImmutable $endsOn = null): Recurrence
     {
         $recurrence = new Recurrence([
             'owner_id' => $owner, 'category_id' => $categoryId, 'card_id' => $cardId, 'kind' => 'saida', 'name' => $name,
-            'amount_cents' => $amount, 'frequency' => $frequency, 'starts_on' => $starts->toDateString(), 'installments_total' => $total,
+            'amount_cents' => $amount, 'frequency' => $frequency, 'starts_on' => $starts->toDateString(), 'installments_total' => $total, 'ends_on' => $endsOn?->endOfMonth()->toDateString(),
         ]);
         $recurrence->couple_id = $actor->couple_id;
         $recurrence->save();

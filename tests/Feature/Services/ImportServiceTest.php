@@ -92,3 +92,22 @@ it('dono fora do casal é recusado; dono do par é aceito', function () {
     app(ImportService::class)->import($eliel, $payload, CarbonImmutable::parse('2026-09-01'), ['e0' => $ana->id]);
     expect(Entry::where('name', 'Salário')->first()->owner_id)->toBe($ana->id);
 });
+
+it('cartão com data de última parcela: vira mensal até aquele mês; data que já passou entra só neste mês', function () {
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel);
+    $payload = new ImportPayload(entries: [], cards: [['name' => 'Sicoob', 'lines' => [
+        ['kind' => 'fixo', 'name' => 'Armário', 'amount' => 10000, 'installment' => null, 'ends_on' => '2026-12-08'],
+        ['kind' => 'fixo', 'name' => 'Já acabou', 'amount' => 5000, 'installment' => null, 'ends_on' => '2020-01-05'],
+        ['kind' => 'fixo', 'name' => 'Google Fotos', 'amount' => 1500, 'installment' => null, 'ends_on' => null],
+    ]]], people: [], vale: null);
+
+    app(ImportService::class)->import($eliel, $payload, CarbonImmutable::parse('2026-10-01'));
+    app(OpenMonthService::class)->openRange($eliel->couple_id, CarbonImmutable::parse('2026-10-01'), 6);
+
+    $meses = fn (string $nome) => Entry::where('name', $nome)->orderBy('month')->get()->map(fn ($e) => $e->month->format('Y-m'))->all();
+
+    expect($meses('Armário'))->toBe(['2026-10', '2026-11', '2026-12'])      // até a última parcela
+        ->and($meses('Já acabou'))->toBe(['2026-10'])                        // só o mês importado
+        ->and($meses('Google Fotos'))->toBe(['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03']);
+});

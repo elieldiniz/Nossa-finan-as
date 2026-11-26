@@ -8,6 +8,7 @@ use App\Livewire\Entry\EntryForm;
 use App\Livewire\Goals\GoalsPage;
 use App\Livewire\Home\HomePage;
 use App\Livewire\Import\ImportPage;
+use App\Livewire\Import\OfxPage;
 use App\Livewire\Invite\InvitePartner;
 use App\Livewire\More\MorePage;
 use App\Livewire\People\PeoplePage;
@@ -35,6 +36,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('categorias', CategoriesPage::class)->name('categories');
     Route::get('mais', MorePage::class)->name('more');
     Route::get('importar', ImportPage::class)->name('import');
+    Route::get('importar-extrato', OfxPage::class)->name('import.ofx');
 });
 
 Volt::route('convite/{token}', 'auth.accept-invite')

@@ -67,3 +67,22 @@ it('dá para trocar o dono de um item na prévia', function () {
 
     expect(Entry::withoutGlobalScopes()->where('name', 'Salário')->first()->owner_id)->toBe($ana->id);
 });
+
+it('planilha com várias abas: mostra a escolha da aba e sugere o mês pelo título', function () {
+    [$eliel] = makeCouple();
+    $arquivo = UploadedFile::fake()->createWithContent('planilha.xlsx', file_get_contents(OrcMesFixture::variosMeses()));
+
+    $tela = Livewire::actingAs($eliel)->test(ImportPage::class)->set('file', $arquivo)
+        ->assertSet('sheets', ['Orç - Mês Outubro', 'Orç - Mês Novembro'])->assertSet('sheet', 'Orç - Mês Outubro')
+        ->assertSeeHtml('data-testid="sheet-select"')->assertSet('month', now()->year.'-09');
+
+    $tela->set('sheet', 'Orç - Mês Novembro')->assertSet('month', now()->year.'-10')
+        ->call('preview')->assertHasNoErrors()->assertSee('Spotify')->assertSee('Armário');
+});
+
+it('o arquivo com uma aba só não pergunta qual importar', function () {
+    [$eliel] = makeCouple();
+    $arquivo = UploadedFile::fake()->createWithContent('planilha.xlsx', file_get_contents(OrcMesFixture::setembro()));
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('file', $arquivo)->assertDontSeeHtml('data-testid="sheet-select"')->assertSet('month', now()->year.'-09');
+});

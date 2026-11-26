@@ -3,7 +3,9 @@
 namespace App\Import;
 
 use App\Support\Money;
+use Carbon\CarbonImmutable;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Throwable;
 
@@ -30,19 +32,48 @@ final class OrcMesImport
     /** @var array<int, string> */
     private array $warnings = [];
 
-    public function parse(string $path): ImportPayload
+    /**
+     * Abas que parecem a planilha "Orç - Mês" ("Orç - Mês", "Orç - Mês Outubro", ...), na ordem do arquivo.
+     *
+     * @return array<int, string>
+     */
+    public function sheetNames(string $path): array
     {
         try {
+            $names = IOFactory::createReaderForFile($path)->listWorksheetNames($path);
+        } catch (Throwable) {
+            throw new InvalidImportFile('Não foi possível ler o arquivo. Use uma planilha .xlsx.');
+        }
+
+        return array_values(array_filter($names, fn (string $n) => str_starts_with($this->lower(trim($n)), $this->lower(self::SHEET))));
+    }
+
+    /** @param  string|null  $sheetName  aba a ler; sem ela, a primeira aba "Orç - Mês…" do arquivo */
+    public function parse(string $path, ?string $sheetName = null): ImportPayload
+    {
+        $names = $this->sheetNames($path);
+
+        if ($names === []) {
+            throw new InvalidImportFile('A planilha precisa ter uma aba chamada "'.self::SHEET.'" (ou "'.self::SHEET.' Outubro", etc.).');
+        }
+
+        $sheetName ??= $names[0];
+
+        if (! in_array($sheetName, $names, true)) {
+            throw new InvalidImportFile('Não encontrei a aba "'.$sheetName.'" na planilha.');
+        }
+
+        try {
             $reader = IOFactory::createReaderForFile($path);
-            $reader->setLoadSheetsOnly([self::SHEET]);
+            $reader->setLoadSheetsOnly([$sheetName]);
             $book = $reader->load($path);
         } catch (Throwable) {
             throw new InvalidImportFile('Não foi possível ler o arquivo. Use uma planilha .xlsx.');
         }
 
-        $sheet = $book->getSheetByName(self::SHEET);
+        $sheet = $book->getSheetByName($sheetName);
         if ($sheet === null) {
-            throw new InvalidImportFile('A planilha precisa ter a aba "'.self::SHEET.'".');
+            throw new InvalidImportFile('Não encontrei a aba "'.$sheetName.'" na planilha.');
         }
 
         $this->sheet = $sheet;
@@ -86,51 +117,124 @@ final class OrcMesImport
         return $result;
     }
 
-    /** @return array<int, array{name: string, lines: array<int, array<string, mixed>>}> */
+    /** Textos da coluna F que NÃO são o nome de um cartão. */
+    private const NOT_A_CARD = ['total', 'cartão - total', 'cartao - total', 'recorrente', 'assinaturas', 'assinatura', 'compras a vista', 'compras à vista',
+        'parcelamento/data', 'cartões', 'cartoes', 'fixos', 'fixo'];
+
+    /**
+     * Cartões: o nome fica na coluna F com G e H vazios (com ou sem a linha "Parcelamento/Data" logo abaixo);
+     * as compras vêm nas linhas seguintes até o próximo cartão ou "Cartão - TOTAL". Linhas "Total" são só somas.
+     *
+     * @return array<int, array{name: string, lines: array<int, array<string, mixed>>}>
+     */
     private function cards(): array
     {
         $cards = [];
+        $current = null;
+        $section = null; // 'recorrente' depois de um título "Assinaturas"/"Recorrente" sem valor; 'avista' depois de "Compras a vista"
+        $group = false;  // true depois de uma linha "FIXOS": as linhas sem marcação logo abaixo também são fixas
 
         for ($r = 4; $r <= $this->lastRow; $r++) {
-            $name = $this->text('F', $r);
-            if ($name === '' || $this->lower($this->text('F', $r + 1)) !== 'parcelamento/data') {
+            $label = $this->text('F', $r);
+            $lower = $this->lower($label);
+            $name = $this->text('G', $r);
+            $amount = $this->money('H', $r);
+            $date = $this->dateAt('F', $r);
+
+            if (str_starts_with($lower, 'cartão - total') || str_starts_with($lower, 'cartao - total')) {
+                $current = null; // fim deste cartão (alguns arquivos têm um só "Cartão - TOTAL" no fim, outros um por cartão)
+                $section = null;
+                $group = false;
+
                 continue;
             }
 
-            $lines = [];
-            for ($k = $r + 2; $k <= $this->lastRow; $k++) {
-                $label = $this->text('F', $k);
-                if (str_starts_with($this->lower($label), 'cartão - total') || str_starts_with($this->lower($label), 'cartao - total')) {
-                    break;
-                }
-                $amount = $this->money('H', $k);
-                if ($amount === null || $amount <= 0) {
-                    continue;
-                }
-                $lines[] = $this->cardLine($label, $this->text('G', $k), $amount, $k, $name);
+            // nome de cartão: texto em F, sem nome nem valor ao lado
+            if ($date === null && $label !== '' && $name === '' && ($amount === null || $amount <= 0) && ! in_array($lower, self::NOT_A_CARD, true)) {
+                $cards[] = ['name' => $label, 'lines' => []];
+                $current = array_key_last($cards);
+                $section = null;
+                $group = false;
+
+                continue;
             }
 
-            $cards[] = ['name' => $name, 'lines' => $lines];
+            if ($current === null) {
+                continue;
+            }
+
+            // títulos de seção sem valor
+            if ($name === '' && ($amount === null || $amount <= 0)) {
+                $group = false;
+                $section = match (true) {
+                    in_array($lower, ['assinaturas', 'assinatura', 'recorrente', 'fixos', 'fixo'], true) => 'recorrente',
+                    str_starts_with($lower, 'compras a vista'), str_starts_with($lower, 'compras à vista') => 'avista',
+                    str_starts_with($lower, 'total') => null,
+                    default => $section,
+                };
+
+                continue;
+            }
+
+            if ($amount === null || $amount <= 0 || str_starts_with($lower, 'total')) {
+                continue;
+            }
+
+            if ($label !== '' || $date !== null) {
+                $group = in_array($lower, ['fixos', 'fixo'], true); // só "FIXOS" vale para as linhas de baixo
+            }
+
+            $cards[$current]['lines'][] = $this->cardLine($label, $date, $name, $amount, $r, $cards[$current]['name'], $section, $group);
         }
 
         return $cards;
     }
 
-    /** "FIXOS" ou vazio = fixo; "k/n" = parcelado; o resto vira avulso (com aviso). */
-    private function cardLine(string $label, string $name, int $amount, int $row, string $card): array
+    /**
+     * "FIXOS", "Recorrente", "Assinaturas" ou vazio = mensal; "k/n" = parcelado; uma DATA = última parcela (mensal até aquele mês);
+     * "Compras a vista" = só neste mês; o resto vira avulso (com aviso).
+     */
+    private function cardLine(string $label, ?CarbonImmutable $date, string $name, int $amount, int $row, string $card, ?string $section = null, bool $group = false): array
     {
         $kind = 'fixo';
         $installment = null;
+        $endsOn = null;
+        $lower = $this->lower($label);
 
-        if (preg_match('#^\s*(\d{1,3})\s*/\s*(\d{1,3})\s*$#', $label, $m) && (int) $m[2] >= (int) $m[1] && (int) $m[1] >= 1) {
+        if ($date !== null) {
+            $endsOn = $date->toDateString();
+        } elseif (preg_match('#^\s*(\d{1,3})\s*/\s*(\d{1,3})\s*$#', $label, $m) && (int) $m[2] >= (int) $m[1] && (int) $m[1] >= 1) {
             $kind = 'parcelado';
             $installment = [(int) $m[1], (int) $m[2]];
-        } elseif ($label !== '' && $this->lower($label) !== 'fixos' && $this->lower($label) !== 'fixo') {
+        } elseif ($label !== '' && ! in_array($lower, ['fixos', 'fixo', 'recorrente', 'assinaturas', 'assinatura'], true)) {
             $kind = 'avulso';
             $this->warnings[] = "Cartão {$card}, linha {$row}: não entendi \"{$label}\" em Parcelamento/Data; importei como lançamento avulso.";
+        } elseif ($label === '' && ! $group && $section !== 'recorrente') {
+            $kind = 'avulso'; // sem marcação e fora de um grupo FIXOS/Recorrente: compra só deste mês
         }
 
-        return ['kind' => $kind, 'name' => $name !== '' ? $name : ($kind === 'fixo' ? 'Fixo' : 'Lançamento'), 'amount' => $amount, 'installment' => $installment];
+        return ['kind' => $kind, 'name' => $name !== '' ? $name : ($kind === 'fixo' ? 'Fixo' : 'Lançamento'), 'amount' => $amount, 'installment' => $installment, 'ends_on' => $endsOn];
+    }
+
+    /** Data na célula (data de verdade ou número de série do Excel); null se não for data. */
+    private function dateAt(string $col, int $row): ?CarbonImmutable
+    {
+        $cell = $this->sheet->getCell($col.$row);
+        $value = $this->raw($col, $row);
+
+        try {
+            if ($value instanceof \DateTimeInterface) {
+                return CarbonImmutable::instance($value);
+            }
+
+            if (is_numeric($value) && ExcelDate::isDateTime($cell) && (float) $value > 30000) {
+                return CarbonImmutable::instance(ExcelDate::excelToDateTimeObject((float) $value));
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        return null;
     }
 
     /** @return array<int, array{name: string, debts: array<int, array<string, mixed>>}> */

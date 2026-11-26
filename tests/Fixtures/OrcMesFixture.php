@@ -2,6 +2,7 @@
 
 namespace Tests\Fixtures;
 
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -72,6 +73,49 @@ final class OrcMesFixture
         }
 
         $path = tempnam(sys_get_temp_dir(), 'orcmes').'.xlsx';
+        (new Xlsx($book))->save($path);
+
+        return $path;
+    }
+
+    /**
+     * Pasta com 2 abas ("Orç - Mês Outubro" e "Orç - Mês Novembro") no estilo de uma planilha real:
+     * cartões sem a linha "Parcelamento/Data", datas = última parcela, "Recorrente", seção "Compras a vista" e linhas "Total".
+     */
+    public static function variosMeses(): string
+    {
+        $book = new Spreadsheet;
+
+        foreach (['Outubro' => 'Setembro', 'Novembro' => 'Outubro'] as $aba => $financeiro) {
+            $s = $book->getSheetCount() === 1 && $book->getActiveSheet()->getTitle() === 'Worksheet' ? $book->getActiveSheet() : $book->createSheet();
+            $s->setTitle('Orç - Mês '.$aba);
+            $s->setCellValue('B2', "Financeiro de {$financeiro} - Pagamento {$aba}")->setCellValue('M3', 'Valor')->setCellValue('N3', 2250);
+            $s->setCellValue('B4', 'Entradas')->setCellValue('B5', 'Pago')->setCellValue('C5', 'Nome')->setCellValue('D5', 'Valor');
+            $s->setCellValue('B6', true)->setCellValue('C6', 'Salário')->setCellValue('D6', 3000);
+            $s->setCellValue('B9', 'Saídas')->setCellValue('B10', 'Pago')->setCellValue('C10', 'Nome')->setCellValue('D10', 'Valor');
+            $s->setCellValue('B11', true)->setCellValue('C11', 'Aluguel')->setCellValue('D11', 600);
+            $s->setCellValue('B12', true)->setCellValue('C12', 'Cartão Sicoob')->setCellValue('D12', '=H13');
+            $s->setCellValue('B23', 'FECHAMENTO DO MÊS')->setCellValue('D23', '=SUM(D6:D8)-SUM(D11:D22)');
+
+            // cartão 1 (com cabeçalho): data = última parcela; Recorrente; subtotal "Total"
+            $s->setCellValue('F4', 'Sicoob')->setCellValue('F5', 'Parcelamento/Data')->setCellValue('G5', 'Nome')->setCellValue('H5', 'Valor');
+            $s->setCellValue('F6', Date::PHPToExcel(new \DateTime('2027-03-08')))->setCellValue('G6', 'Armário')->setCellValue('H6', 100);
+            $s->getStyle('F6')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+            $s->setCellValue('F7', 'Recorrente')->setCellValue('G7', 'Google Fotos')->setCellValue('H7', 15);
+            $s->setCellValue('F8', Date::PHPToExcel(new \DateTime('2020-01-05')))->setCellValue('G8', 'Já acabou')->setCellValue('H8', 50);
+            $s->getStyle('F8')->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+            $s->setCellValue('F13', 'Total')->setCellValue('H13', '=SUM(H6:H12)');
+
+            // cartão 2 SEM a linha "Parcelamento/Data"
+            $s->setCellValue('F15', 'Nubank');
+            $s->setCellValue('F16', 'Recorrente')->setCellValue('G16', 'Spotify')->setCellValue('H16', 20);
+            $s->setCellValue('F18', 'Compras a vista');
+            $s->setCellValue('G19', 'Padaria')->setCellValue('H19', 10)->setCellValue('G20', 'Cinema')->setCellValue('H20', 30);
+            $s->setCellValue('F21', 'Total')->setCellValue('H21', '=SUM(H16:H20)');
+            $s->setCellValue('F55', 'Cartão - TOTAL')->setCellValue('H55', '=H13+H21');
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'orc').'.xlsx';
         (new Xlsx($book))->save($path);
 
         return $path;

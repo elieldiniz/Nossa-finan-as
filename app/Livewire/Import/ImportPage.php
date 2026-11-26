@@ -29,6 +29,11 @@ class ImportPage extends Component
 
     public string $month = '';
 
+    /** Abas "Orç - Mês…" do arquivo escolhido e a aba a importar. @var array<int, string> */
+    public array $sheets = [];
+
+    public ?string $sheet = null;
+
     /** @var array<string, mixed>|null */
     public ?array $payload = null;
 
@@ -43,6 +48,47 @@ class ImportPage extends Component
     {
         $this->month = CarbonImmutable::now()->format('Y-m');
         Gate::authorize('create', Entry::class);
+    }
+
+    /** Ao escolher o arquivo: lista as abas e já sugere o mês de destino. */
+    public function updatedFile(OrcMesImport $parser): void
+    {
+        $this->error = $this->done = null;
+        $this->payload = null;
+        $this->sheets = [];
+        $this->sheet = null;
+
+        if (! $this->file) {
+            return;
+        }
+
+        try {
+            $this->sheets = $parser->sheetNames($this->file->getRealPath());
+            $this->sheet = $this->sheets[0] ?? null;
+            $this->suggestMonth($parser);
+        } catch (InvalidImportFile $e) {
+            $this->error = $e->getMessage();
+        }
+    }
+
+    public function updatedSheet(OrcMesImport $parser): void
+    {
+        $this->payload = null;
+        $this->suggestMonth($parser);
+    }
+
+    /** O mês do título da aba ("Financeiro de Outubro…") vira o mês de destino sugerido (no ano atual). */
+    private function suggestMonth(OrcMesImport $parser): void
+    {
+        try {
+            $detected = $parser->parse($this->file->getRealPath(), $this->sheet)->detectedMonth;
+        } catch (InvalidImportFile) {
+            return;
+        }
+
+        if ($detected) {
+            $this->month = CarbonImmutable::now()->year.'-'.str_pad((string) $detected, 2, '0', STR_PAD_LEFT);
+        }
     }
 
     public function preview(OrcMesImport $parser, ImportService $service): void
@@ -61,7 +107,7 @@ class ImportPage extends Component
         ]);
 
         try {
-            $payload = $parser->parse($this->file->getRealPath());
+            $payload = $parser->parse($this->file->getRealPath(), $this->sheet);
         } catch (InvalidImportFile $e) {
             $this->error = $e->getMessage();
 
@@ -97,12 +143,16 @@ class ImportPage extends Component
         $this->done = "Importado: {$counts['entries']} lançamentos, {$counts['cards']} cartões, {$counts['debts']} pendências de pessoas.";
         $this->payload = null;
         $this->file = null;
+        $this->sheets = [];
+        $this->sheet = null;
     }
 
     public function cancel(): void
     {
         $this->payload = null;
         $this->file = null;
+        $this->sheets = [];
+        $this->sheet = null;
     }
 
     private function monthDate(): CarbonImmutable
