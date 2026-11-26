@@ -22,6 +22,12 @@ use InvalidArgumentException;
  */
 class ImportService
 {
+    /** Quantos lançamentos o mês já tem (para avisar antes de importar por cima). */
+    public function monthEntryCount(CarbonImmutable $month): int
+    {
+        return Entry::withTrashed()->where('month', $month->startOfMonth()->toDateString())->count();
+    }
+
     public function monthHasData(CarbonImmutable $month): bool
     {
         $date = $month->startOfMonth()->toDateString();
@@ -38,8 +44,9 @@ class ImportService
     /**
      * @param  array<int, int|null>  $dueDays  "vence dia" de cada cartão da planilha (mesma ordem de $payload->cards)
      * @param  array<int, int|string|null>  $cardMap  cartão já cadastrado que corresponde a cada cartão da planilha (vazio = pelo nome, ou cria um novo)
+     * @param  bool  $merge  importar num mês que já tem dados: o que já existe igual (nome e valor) é pulado
      */
-    public function import(User $actor, ImportPayload $payload, CarbonImmutable $month, array $owners = [], array $dueDays = [], array $cardMap = []): array
+    public function import(User $actor, ImportPayload $payload, CarbonImmutable $month, array $owners = [], array $dueDays = [], array $cardMap = [], bool $merge = false): array
     {
         Gate::forUser($actor)->authorize('create', Entry::class);
         $month = $month->startOfMonth();
@@ -51,19 +58,34 @@ class ImportService
             }
         }
 
-        return DB::transaction(function () use ($actor, $payload, $month, $owners, $dueDays, $cardMap) {
-            if ($this->monthHasData($month)) {
+        return DB::transaction(function () use ($actor, $payload, $month, $owners, $dueDays, $cardMap, $merge) {
+            if (! $merge && $this->monthHasData($month)) {
                 throw new InvalidArgumentException('Este mês já tem dados. Limpe o mês ou escolha outro para importar.');
             }
 
             $ownerOf = fn (string $key) => (int) ($owners[$key] ?? $actor->id);
             $outros = Category::where('name', 'Outros')->first() ?? Category::orderBy('position')->firstOrFail();
-            $counts = ['entries' => 0, 'cards' => 0, 'recurrences' => 0, 'debts' => 0, 'vale_spends' => 0];
+            $counts = ['entries' => 0, 'cards' => 0, 'recurrences' => 0, 'debts' => 0, 'vale_spends' => 0, 'skipped' => 0];
+
+            // ao importar por cima de um mês com dados: o que já existe igual (tipo, nome e valor) é pulado
+            $seen = [];
+            if ($merge) {
+                foreach (Entry::withTrashed()->where('month', $month->toDateString())->get() as $existing) {
+                    $seen[$this->dupKey($existing->kind, $existing->name, $existing->amount_cents, $existing->card_id)] = true;
+                }
+            }
+            $isDuplicate = fn (string $kind, string $name, int $amount, ?int $cardId) => $merge && isset($seen[$this->dupKey($kind, $name, $amount, $cardId)]);
 
             $categoryOf = fn (array $row) => ! empty($row['category_id']) && ($c = Category::find((int) $row['category_id'])) ? $c->id : $outros->id;
 
             foreach ($payload->entries as $i => $e) {
                 if (! empty($e['skip'])) {
+                    continue;
+                }
+
+                if ($isDuplicate($e['type'], $e['name'], $e['amount'], null)) {
+                    $counts['skipped']++;
+
                     continue;
                 }
 
@@ -83,6 +105,12 @@ class ImportService
 
                 foreach ($card['lines'] as $li => $line) {
                     if (! empty($line['skip'])) {
+                        continue;
+                    }
+
+                    if ($isDuplicate('saida', $line['name'], $line['amount'], $model->id)) {
+                        $counts['skipped']++;
+
                         continue;
                     }
 
@@ -146,6 +174,11 @@ class ImportService
 
             return $counts;
         });
+    }
+
+    private function dupKey(string $kind, string $name, int $amount, ?int $cardId): string
+    {
+        return $kind.'|'.mb_strtolower(trim($name)).'|'.$amount.'|'.($cardId ?? 0);
     }
 
     private function entry(User $actor, int $owner, string $kind, string $name, int $amount, CarbonImmutable $month, int $categoryId, ?int $cardId, bool $paid, ?int $recurrenceId = null, ?string $label = null): Entry

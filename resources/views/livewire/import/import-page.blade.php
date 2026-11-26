@@ -22,7 +22,14 @@
             @endif
             <div><label for="month" class="nf-label">Importar para o mês</label><input id="month" type="month" wire:model="month" class="nf-input" />@error('month') <p class="text-sm font-bold text-neg">{{ $message }}</p> @enderror</div>
 
-            <p class="rounded-2xl bg-[#FFF1D6] px-4 py-3 text-sm font-medium text-[#6B4600]">Se o mês já tiver dados, a importação é recusada: limpe o mês antes ou escolha outro.</p>
+            @if ($existingCount !== null)
+                <label class="flex min-h-11 items-start gap-2 rounded-2xl bg-[#FFF1D6] px-4 py-3 text-sm font-semibold text-[#6B4600]" data-testid="merge-option">
+                    <input type="checkbox" wire:model.live="merge" class="mt-0.5 size-5 shrink-0 accent-brand" />
+                    <span>Importar mesmo assim, por cima dos {{ $existingCount }} lançamentos que o mês já tem. <span class="block text-xs font-normal">O que já existir igual (mesmo nome e valor) é pulado, sem duplicar.</span></span>
+                </label>
+            @else
+                <p class="rounded-2xl bg-[#FFF1D6] px-4 py-3 text-sm font-medium text-[#6B4600]">Se o mês de destino já tiver lançamentos, você escolhe se quer importar por cima (o que já existir igual é pulado) ou usar outro mês.</p>
+            @endif
             <button type="submit" class="nf-btn" wire:loading.attr="disabled" wire:target="preview,file"><span wire:loading.remove wire:target="preview">Ver prévia</span><span wire:loading wire:target="preview">Lendo a planilha…</span></button>
             <a href="{{ route('import.ofx') }}" wire:navigate class="text-center text-sm font-bold text-brand">Importar fatura do cartão (.ofx) ›</a>
         </form>

@@ -226,3 +226,34 @@ it('falha inesperada na gravação mostra o motivo na tela em vez de ficar muda'
 
     $tela->call('confirm')->assertSee('Não consegui gravar a importação')->assertSee('RuntimeException')->assertSee('coluna muito longa');
 });
+
+it('mês com dados: avisa quantos lançamentos tem e oferece importar mesmo assim', function () {
+    [$eliel] = makeCouple();
+    makeEntry($eliel, ['month' => '2026-09-01', 'name' => 'Já existia']);
+
+    $tela = Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->assertSee('já tem 1 lançamentos')->assertSeeHtml('data-testid="merge-option"')->assertSet('payload', null);
+
+    $tela->set('merge', true)->call('preview')->assertSeeHtml('data-testid="preview"')->call('confirm')->assertSee('Importado:');
+    expect(Entry::where('name', 'Já existia')->count())->toBe(1)->and(Entry::count())->toBeGreaterThan(1);
+});
+
+it('importar por cima pula o que já existe igual e não duplica', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')->call('confirm');
+    $primeira = Entry::count();
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->set('merge', true)->call('preview')->call('confirm')->assertSee('já existiam iguais e foram pulados');
+
+    expect(Entry::count())->toBe($primeira);
+});
+
+it('trocar o mês limpa o aviso e a opção de importar por cima', function () {
+    [$eliel] = makeCouple();
+    makeEntry($eliel, ['month' => '2026-09-01']);
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')->set('merge', true)
+        ->set('month', '2026-10')->assertSet('merge', false)->assertSet('existingCount', null)->call('preview')->assertSeeHtml('data-testid="preview"');
+});

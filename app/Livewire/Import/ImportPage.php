@@ -45,6 +45,11 @@ class ImportPage extends Component
     /** @var array<string, int> */
     public array $owners = [];
 
+    /** O mês de destino já tem lançamentos: a pessoa pode importar mesmo assim (o que já existe igual é pulado). */
+    public bool $merge = false;
+
+    public ?int $existingCount = null;
+
     /** Ajustes de cada item na prévia (chave: e0, c0l1, p0d2, v0): include, name, amount (texto), category_id. @var array<string, array<string, mixed>> */
     public array $edits = [];
 
@@ -90,8 +95,17 @@ class ImportPage extends Component
         }
     }
 
+    public function updatedMonth(): void
+    {
+        $this->existingCount = null;
+        $this->merge = false;
+        $this->error = null;
+    }
+
     public function updatedSheet(OrcMesImport $parser): void
     {
+        $this->existingCount = null;
+        $this->merge = false;
         $this->payload = null;
         $this->suggestMonth($parser);
     }
@@ -137,10 +151,16 @@ class ImportPage extends Component
             return;
         }
 
-        if ($service->monthHasData($this->monthDate())) {
-            $this->error = 'Este mês já tem dados. Limpe o mês ou escolha outro para importar.';
+        $this->existingCount = null;
 
-            return;
+        if ($service->monthHasData($this->monthDate())) {
+            if (! $this->merge) {
+                $this->existingCount = $service->monthEntryCount($this->monthDate());
+                $label = str($this->monthDate()->translatedFormat('F \\d\\e Y'))->lower();
+                $this->error = "{$label} já tem {$this->existingCount} lançamentos. Escolha outro mês ou marque “Importar mesmo assim” abaixo (o que já existir igual é pulado).";
+
+                return;
+            }
         }
 
         $this->payload = $payload->toArray();
@@ -291,7 +311,7 @@ class ImportPage extends Component
         }
 
         try {
-            $counts = $service->import(auth()->user(), $effective, $this->monthDate(), $this->owners, array_map(fn ($d) => $d === '' || $d === null ? null : (int) $d, $this->dueDays), $this->cardMap);
+            $counts = $service->import(auth()->user(), $effective, $this->monthDate(), $this->owners, array_map(fn ($d) => $d === '' || $d === null ? null : (int) $d, $this->dueDays), $this->cardMap, $this->merge);
         } catch (InvalidArgumentException $e) {
             $this->error = $e->getMessage();
 
@@ -302,7 +322,9 @@ class ImportPage extends Component
             return;
         }
 
-        $this->done = "Importado: {$counts['entries']} lançamentos, {$counts['cards']} cartões, {$counts['debts']} pendências de pessoas.";
+        $this->done = "Importado: {$counts['entries']} lançamentos, {$counts['cards']} cartões, {$counts['debts']} pendências de pessoas.".($counts['skipped'] ? " {$counts['skipped']} já existiam iguais e foram pulados." : '');
+        $this->merge = false;
+        $this->existingCount = null;
         $this->payload = null;
         $this->file = null;
         $this->sheets = [];
