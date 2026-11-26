@@ -45,7 +45,7 @@
                     @else
                         <span class="block truncate text-sm font-bold">{{ $row['name'] }}</span>
                     @endif
-                    <span class="text-xs text-muted">{{ $row['sub'] }}@if ($row['source'] === 'card' && ! in_array($row['id'], $openCards, true)) · toque para ver @endif</span>
+                    <span class="block truncate text-xs text-muted" data-testid="{{ $row['source'] === 'card' ? 'card-purchases' : 'row-sub' }}">{{ $row['sub'] }}</span>
                 </span>
                 <span class="text-right">
                     <span class="block text-sm font-extrabold {{ $row['signed'] >= 0 ? 'text-pos' : '' }}">{{ Money::signed($row['signed']) }}</span>

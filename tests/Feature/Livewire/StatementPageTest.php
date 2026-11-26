@@ -104,7 +104,7 @@ it('a linha do cartão abre e mostra cada compra com categoria e parcela', funct
     makeEntry($eliel, ['card_id' => $card->id, 'name' => 'Uber', 'amount_cents' => 2400]);
 
     $tela = Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')
-        ->assertSee('Cartão Nubank')->assertSee('2 compras')->assertSee('toque para ver')->assertDontSeeHtml('data-testid="card-lines"');
+        ->assertSee('Cartão Nubank')->assertSeeHtml('data-testid="card-purchases">SHEIN, Uber<')->assertDontSeeHtml('data-testid="card-lines"');
 
     $tela->call('toggleCard', $card->id)->assertSeeHtml('data-testid="card-lines"')->assertSee('SHEIN')->assertSee('Lazer · parcela 2/5')->assertSee('R$ 120,00')->assertSee('Uber')->assertSee('R$ 24,00');
     expect(substr_count($tela->html(), 'data-testid="card-line"'))->toBe(2);
@@ -118,4 +118,18 @@ it('a busca encontra o cartão pelo nome de uma compra', function () {
     makeEntry($eliel, ['card_id' => $card->id, 'name' => 'SHEIN', 'amount_cents' => 12000]);
 
     Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->set('search', 'shein')->assertSee('Cartão Nubank');
+});
+
+it('na linha do cartão aparece o nome das compras sem abrir (com "e mais N" quando são muitas)', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Pagbank');
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'Mercado Livre', 'amount_cents' => 12700]);
+
+    $tela = Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertSeeHtml('data-testid="card-purchases">Mercado Livre<');
+
+    foreach (['SHEIN', 'Uber', 'Netflix'] as $nome) {
+        makeEntry($eliel, ['card_id' => $card->id, 'name' => $nome, 'amount_cents' => 1000]);
+    }
+
+    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertSeeHtml('data-testid="card-purchases">Mercado Livre, SHEIN e mais 2<');
 });
