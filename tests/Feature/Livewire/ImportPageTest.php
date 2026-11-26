@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Import\ImportPage;
+use App\Models\Card;
 use App\Models\Entry;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
@@ -85,4 +86,13 @@ it('o arquivo com uma aba só não pergunta qual importar', function () {
     $arquivo = UploadedFile::fake()->createWithContent('planilha.xlsx', file_get_contents(OrcMesFixture::setembro()));
 
     Livewire::actingAs($eliel)->test(ImportPage::class)->set('file', $arquivo)->assertDontSeeHtml('data-testid="sheet-select"')->assertSet('month', now()->year.'-09');
+});
+
+it('planilha: "Vence dia" de cada cartão grava no cartão', function () {
+    [$eliel] = makeCouple();
+
+    $tela = Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->assertSeeHtml('data-testid="due-days"')->assertSeeHtml('data-testid="due-day-0"')->set('dueDays.0', 10)->call('confirm');
+
+    expect(Card::orderBy('id')->first()->due_day)->toBe(10);
 });

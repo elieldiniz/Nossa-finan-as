@@ -20,13 +20,17 @@
 
     @if ($error) <p role="alert" class="rounded-2xl bg-neg-soft px-4 py-3 text-sm font-bold text-[#8E2F20]" data-testid="form-error">{{ $error }}</p> @endif
 
+    @if ($allCount > 8)
+        <input type="search" wire:model.live.debounce.250ms="search" placeholder="Buscar compra por nome ou categoria" aria-label="Buscar compra" class="nf-input" data-testid="card-search" />
+    @endif
+
     <section class="nf-card p-3" aria-label="Compras do cartão" data-testid="card-lines">
         @forelse ($lines as $line)
             @php $mineLine = (int) $line->owner_id === auth()->id() && $view !== 'par'; @endphp
             <div class="nf-row" wire:key="line-{{ $line->id }}" data-testid="card-line">
                 <span class="min-w-0 flex-1">
                     <a href="{{ route('entry.show', $line->id) }}" wire:navigate class="block truncate text-sm font-bold">{{ $line->name }}</a>
-                    <span class="text-xs text-muted">{{ $line->category?->name ?? 'Sem categoria' }}@if ($line->installment_label) · parcela {{ $line->installment_label }}@elseif ($line->recurrence_id) · todo mês @endif</span>
+                    <span class="text-xs text-muted">@if ($line->purchased_on) <span data-testid="line-date">{{ $line->purchased_on->format('d/m') }}</span> · @endif{{ $line->category?->name ?? 'Sem categoria' }}@if ($line->installment_label) · parcela {{ $line->installment_label }}@elseif ($line->recurrence_id) · todo mês @endif</span>
                 </span>
                 <span class="text-sm font-extrabold">{{ Money::format($line->amount_cents) }}</span>
                 @if ($mineLine)
@@ -45,7 +49,7 @@
                 @endif
             </div>
         @empty
-            <p class="px-2 py-6 text-center text-sm text-muted" data-testid="no-lines">Sem compras neste mês. Use “+ Compra parcelada” ou “+ Compra fixa” abaixo, ou <a href="{{ route('import.ofx') }}" wire:navigate class="font-bold text-brand">importe a fatura (.ofx)</a>.</p>
+            <p class="px-2 py-6 text-center text-sm text-muted" data-testid="no-lines">@if (trim($search) !== '') Nenhuma compra com “{{ $search }}”. @else Sem compras neste mês. Use “+ Compra parcelada” ou “+ Compra fixa” abaixo, ou <a href="{{ route('import.ofx') }}" wire:navigate class="font-bold text-brand">importe a fatura (.ofx)</a>. @endif</p>
         @endforelse
     </section>
 

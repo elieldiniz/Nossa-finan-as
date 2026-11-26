@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 class OfxImportService
 {
     /**
-     * @param  array<int, array{id: string, name: string, amount: int, installment: ?array{0: int, 1: int}, category_id: int}>  $lines  amount em centavos, positivo
+     * @param  array<int, array{id: string, name: string, amount: int, installment: ?array{0: int, 1: int}, category_id: int, date?: ?string}>  $lines  amount em centavos, positivo
      * @return array{created: int, skipped: int, recurrences: int}
      */
     public function import(User $actor, Card $card, CarbonImmutable $month, int $ownerId, array $lines): array
@@ -52,7 +52,7 @@ class OfxImportService
                 $entry = new Entry([
                     'owner_id' => $ownerId, 'kind' => Entry::SAIDA, 'name' => $line['name'], 'amount_cents' => $line['amount'], 'month' => $month->toDateString(),
                     'category_id' => $line['category_id'], 'card_id' => $card->id, 'paid' => false, 'recurrence_id' => $recurrenceId,
-                    'installment_label' => $label, 'external_id' => $line['id'],
+                    'installment_label' => $label, 'external_id' => $line['id'], 'purchased_on' => $line['date'] ?? null,
                 ]);
                 $entry->couple_id = $actor->couple_id;
                 $entry->save();

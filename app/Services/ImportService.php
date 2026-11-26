@@ -35,7 +35,10 @@ class ImportService
      * @param  array<string, int>  $owners  dono por item (chave de ImportPayload::items()); o padrão é quem importa
      * @return array<string, int> contagens do que foi gravado
      */
-    public function import(User $actor, ImportPayload $payload, CarbonImmutable $month, array $owners = []): array
+    /**
+     * @param  array<int, int|null>  $dueDays  "vence dia" de cada cartão da planilha (mesma ordem de $payload->cards)
+     */
+    public function import(User $actor, ImportPayload $payload, CarbonImmutable $month, array $owners = [], array $dueDays = []): array
     {
         Gate::forUser($actor)->authorize('create', Entry::class);
         $month = $month->startOfMonth();
@@ -47,7 +50,7 @@ class ImportService
             }
         }
 
-        return DB::transaction(function () use ($actor, $payload, $month, $owners) {
+        return DB::transaction(function () use ($actor, $payload, $month, $owners, $dueDays) {
             if ($this->monthHasData($month)) {
                 throw new InvalidArgumentException('Este mês já tem dados. Limpe o mês ou escolha outro para importar.');
             }
@@ -64,6 +67,11 @@ class ImportService
             foreach ($payload->cards as $ci => $card) {
                 $model = Card::whereRaw('lower(name) = ?', [mb_strtolower($card['name'])])->first() ?? $this->newCard($actor, $card['name']);
                 $counts['cards']++;
+
+                $day = (int) ($dueDays[$ci] ?? 0);
+                if ($day >= 1 && $day <= 31 && $model->due_day !== $day) {
+                    $model->update(['due_day' => $day]);
+                }
 
                 foreach ($card['lines'] as $li => $line) {
                     $owner = $ownerOf("c{$ci}l{$li}");

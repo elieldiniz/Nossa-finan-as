@@ -31,6 +31,9 @@ class OfxPage extends Component
 
     public string $newCardName = '';
 
+    /** "Vence dia" do cartão: com ele, a fatura aparece em Contas a vencer. */
+    public ?int $dueDay = null;
+
     public string $month = '';
 
     public ?int $ownerId = null;
@@ -110,7 +113,9 @@ class OfxPage extends Component
 
         if ($match) {
             $this->cardId = $match->id;
+            $this->dueDay = $match->due_day;
         } else {
+            $this->dueDay = null;
             $this->newCardName = $hint === 'nubank' ? 'Nubank' : ucfirst($hint);
         }
     }
@@ -122,6 +127,7 @@ class OfxPage extends Component
 
     public function updatedCardId(OfxImportService $service): void
     {
+        $this->dueDay = $this->cardId ? Card::find($this->cardId)?->due_day : null;
         $this->refreshDuplicates($service);
     }
 
@@ -155,7 +161,7 @@ class OfxPage extends Component
             return;
         }
 
-        $this->validate(['month' => ['required', 'date_format:Y-m'], 'ownerId' => ['required', 'integer']], ['month.date_format' => 'Escolha o mês da fatura.']);
+        $this->validate(['month' => ['required', 'date_format:Y-m'], 'ownerId' => ['required', 'integer'], 'dueDay' => ['nullable', 'integer', 'between:1,31']], ['month.date_format' => 'Escolha o mês da fatura.', 'dueDay.between' => 'O dia de vencimento vai de 1 a 31.']);
 
         $chosen = collect($this->lines)->filter(fn ($l) => $l['include'] && ! $l['credit'] && ! $l['duplicate']);
 
@@ -167,8 +173,14 @@ class OfxPage extends Component
 
         try {
             $card = $this->cardId ? Card::findOrFail($this->cardId) : $this->createCard();
+
+            if ($this->dueDay && $card->due_day !== $this->dueDay) {
+                Gate::authorize('update', $card);
+                $card->update(['due_day' => $this->dueDay]);
+            }
+
             $counts = $service->import(auth()->user(), $card, $this->monthDate(), $this->ownerId, $chosen->map(fn ($l) => [
-                'id' => $l['id'], 'name' => $l['name'], 'amount' => abs($l['amount']), 'installment' => $l['installment'], 'category_id' => (int) $l['category_id'],
+                'id' => $l['id'], 'name' => $l['name'], 'amount' => abs($l['amount']), 'installment' => $l['installment'], 'category_id' => (int) $l['category_id'], 'date' => $l['date'],
             ])->values()->all());
         } catch (InvalidArgumentException $e) {
             $this->error = $e->getMessage();

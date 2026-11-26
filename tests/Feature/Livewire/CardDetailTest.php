@@ -106,3 +106,26 @@ it('a tela do cartão é do casal: outro casal não acessa (404)', function () {
     $this->actingAs($outro)->get(route('cards.show', $card->id))->assertNotFound();
     $this->actingAs($eliel)->get(route('cards.show', $card->id))->assertOk()->assertSee('Nubank');
 });
+
+it('a busca aparece quando há muitas compras e filtra por nome ou categoria', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    foreach (range(1, 9) as $i) {
+        makeEntry($eliel, ['card_id' => $card->id, 'name' => "Compra {$i}", 'amount_cents' => 1000]);
+    }
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'Spotify', 'amount_cents' => 2390, 'category_id' => categoryOf($eliel->couple_id, 'Assinatura')->id]);
+
+    $tela = Livewire::actingAs($eliel)->test(CardDetail::class, ['card' => $card])->set('month', '2026-09')->assertSeeHtml('data-testid="card-search"');
+
+    $tela->set('search', 'spot')->assertSee('Spotify')->assertDontSee('Compra 1');
+    $tela->set('search', 'assinatura')->assertSee('Spotify')->assertDontSee('Compra 2');
+    $tela->set('search', 'nada')->assertSee('Nenhuma compra com');
+});
+
+it('com poucas compras a busca não aparece', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'Uber']);
+
+    Livewire::actingAs($eliel)->test(CardDetail::class, ['card' => $card])->set('month', '2026-09')->assertDontSeeHtml('data-testid="card-search"');
+});

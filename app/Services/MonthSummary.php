@@ -117,7 +117,7 @@ class MonthSummary
             if ($c['expense'] !== null) {
                 $lines = $c['lines']->map(fn (Entry $e) => [
                     'id' => $e->id, 'name' => $e->name, 'amount' => $e->amount_cents,
-                    'sub' => ($e->category?->name ?? 'Sem categoria').($e->installment_label ? ' · parcela '.$e->installment_label : ''),
+                    'sub' => ($e->purchased_on ? $e->purchased_on->format('d/m').' · ' : '').($e->category?->name ?? 'Sem categoria').($e->installment_label ? ' · parcela '.$e->installment_label : ''),
                 ])->all();
 
                 $rows->push(['source' => 'card', 'id' => $c['card']->id, 'name' => 'Cartão '.$c['card']->name, 'sub' => $this->cardPurchases($lines),

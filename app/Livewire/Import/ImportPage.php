@@ -5,6 +5,7 @@ namespace App\Livewire\Import;
 use App\Import\ImportPayload;
 use App\Import\InvalidImportFile;
 use App\Import\OrcMesImport;
+use App\Models\Card;
 use App\Models\Entry;
 use App\Models\User;
 use App\Services\ImportService;
@@ -39,6 +40,9 @@ class ImportPage extends Component
 
     /** @var array<string, int> */
     public array $owners = [];
+
+    /** "Vence dia" de cada cartão da planilha (índice do cartão => dia). @var array<int, int|string|null> */
+    public array $dueDays = [];
 
     public ?string $error = null;
 
@@ -122,6 +126,10 @@ class ImportPage extends Component
 
         $this->payload = $payload->toArray();
         $this->owners = array_fill_keys(array_keys($payload->items()), auth()->id());
+        $this->dueDays = [];
+        foreach ($payload->cards as $ci => $card) {
+            $this->dueDays[$ci] = Card::whereRaw('lower(name) = ?', [mb_strtolower($card['name'])])->value('due_day');
+        }
     }
 
     public function confirm(ImportService $service): void
@@ -133,7 +141,7 @@ class ImportPage extends Component
         }
 
         try {
-            $counts = $service->import(auth()->user(), ImportPayload::fromArray($this->payload), $this->monthDate(), $this->owners);
+            $counts = $service->import(auth()->user(), ImportPayload::fromArray($this->payload), $this->monthDate(), $this->owners, array_map(fn ($d) => $d === '' || $d === null ? null : (int) $d, $this->dueDays));
         } catch (InvalidArgumentException $e) {
             $this->error = $e->getMessage();
 

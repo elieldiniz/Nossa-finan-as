@@ -26,6 +26,12 @@
                     <select id="card" wire:model.live="cardId" class="nf-input" data-testid="card-select"><option value="">Criar novo cartão…</option>@foreach ($cards as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select>
                     @unless ($cardId)<input type="text" wire:model="newCardName" placeholder="Nome do novo cartão" aria-label="Nome do novo cartão" class="nf-input mt-2" data-testid="new-card" />@endunless
                 </div>
+                <div class="col-span-2">
+                    <label for="due" class="nf-label">Vence dia</label>
+                    <input id="due" type="number" min="1" max="31" wire:model="dueDay" placeholder="Ex.: 7" class="nf-input" data-testid="due-day" />
+                    <p class="mt-1 text-xs text-muted">O banco não manda o vencimento no arquivo. Com o dia (por exemplo 7), a fatura aparece em Contas a vencer.</p>
+                    @error('dueDay') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror
+                </div>
                 <div><label for="month" class="nf-label">Mês da fatura</label><input id="month" type="month" wire:model.live="month" class="nf-input" data-testid="month-input" /></div>
                 <div><label for="owner" class="nf-label">De quem</label><select id="owner" wire:model="ownerId" class="nf-input">@foreach ($members as $m)<option value="{{ $m->id }}">{{ $m->name }}</option>@endforeach</select></div>
             </div>

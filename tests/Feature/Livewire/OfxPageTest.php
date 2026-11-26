@@ -1,10 +1,14 @@
 <?php
 
+use App\Livewire\Cards\CardDetail;
 use App\Livewire\Import\OfxPage;
+use App\Livewire\Statement\StatementPage;
 use App\Models\Card;
 use App\Models\Entry;
 use App\Models\Recurrence;
+use App\Services\DueBills;
 use App\Services\OpenMonthService;
+use App\Support\ViewContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
@@ -83,4 +87,41 @@ it('a tela de importar fatura abre e é alcançável pelo Mais e pela planilha',
 
     $this->actingAs($eliel)->get(route('import.ofx'))->assertOk()->assertSee('Importar fatura do cartão');
     $this->actingAs($eliel)->get(route('import'))->assertSee(route('import.ofx'), false);
+});
+
+it('"Vence dia" do cartão: vem preenchido do cartão, grava no cartão e a fatura entra em Contas a vencer', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    expect($card->due_day)->toBeNull();
+
+    $tela = Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoOfx())->assertSeeHtml('data-testid="due-day"')->assertSet('dueDay', null)
+        ->set('dueDay', 7)->call('confirm')->assertHasNoErrors();
+
+    expect($card->fresh()->due_day)->toBe(7);
+
+    $contas = app(DueBills::class)->forMonth(CarbonImmutable::parse('2026-12-01'), ViewContext::for($eliel, 'nos'), CarbonImmutable::parse('2026-12-05'));
+    expect(array_column($contas, 'name'))->toBe(['Fatura Nubank (novembro)'])->and($contas[0]['due'])->toBe('2026-12-07')->and($contas[0]['amount'])->toBe(41370);
+
+    // numa próxima importação o dia já vem preenchido
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoOfx())->assertSet('dueDay', 7);
+});
+
+it('dia de vencimento inválido mostra erro e não grava', function () {
+    [$eliel] = makeCouple();
+    makeCard($eliel, 'Nubank');
+
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoOfx())->set('dueDay', 40)->call('confirm')->assertSee('vai de 1 a 31');
+    expect(Entry::count())->toBe(0);
+});
+
+it('a data de cada compra é guardada e aparece na tela do cartão e no Extrato', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoOfx())->call('confirm');
+
+    expect(Entry::where('name', 'Restaurante Fogao A Le')->first()->purchased_on->toDateString())->toBe('2026-11-22');
+
+    Livewire::actingAs($eliel)->test(CardDetail::class, ['card' => $card])->set('month', '2026-11')->assertSeeHtml('data-testid="line-date">22/11<');
+    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-11')->call('toggleCard', $card->id)->assertSee('22/11');
 });

@@ -36,6 +36,18 @@
             </div>
         </section>
 
+        @if (count($preview->cards))
+            <section class="nf-card p-5" aria-label="Vencimento dos cartões" data-testid="due-days">
+                <h2 class="text-base font-extrabold">Vence dia (opcional)</h2>
+                <p class="mt-1 text-xs text-muted">A planilha não traz o vencimento. Informe o dia de cada cartão e a fatura aparece em Contas a vencer.</p>
+                <div class="mt-3 grid grid-cols-2 gap-3">
+                    @foreach ($preview->cards as $ci => $card)
+                        <div><label for="due-{{ $ci }}" class="nf-label">{{ $card['name'] }}</label><input id="due-{{ $ci }}" type="number" min="1" max="31" wire:model="dueDays.{{ $ci }}" placeholder="Dia" class="nf-input" data-testid="due-day-{{ $ci }}" /></div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+
         @foreach ($preview->warnings as $warning) <p class="rounded-2xl bg-[#FFF1D6] px-4 py-2 text-sm font-semibold text-[#6B4600]" data-testid="warning">{{ $warning }}</p> @endforeach
 
         <section class="nf-card px-5 py-2" aria-label="Itens e donos">

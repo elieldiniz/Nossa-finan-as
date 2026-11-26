@@ -25,6 +25,8 @@ class CardDetail extends Component
 
     public ?string $error = null;
 
+    public string $search = '';
+
     public function mount(Card $card): void
     {
         Gate::authorize('view', $card);
@@ -73,7 +75,12 @@ class CardDetail extends Component
 
         return view('livewire.cards.card-detail', [
             'summary' => $summary,
-            'lines' => $mine['lines'] ?? collect(),
+            'lines' => ($mine['lines'] ?? collect())->when(trim($this->search) !== '', function ($l) {
+                $term = mb_strtolower(trim($this->search));
+
+                return $l->filter(fn (Entry $e) => str_contains(mb_strtolower($e->name.' '.($e->category?->name ?? '')), $term));
+            })->values(),
+            'allCount' => ($mine['lines'] ?? collect())->count(),
             'total' => $mine['total'] ?? 0,
             'paid' => $mine['paid'] ?? false,
             'isFuture' => $this->monthDate()->greaterThan(now()->startOfMonth()),

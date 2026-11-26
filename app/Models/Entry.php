@@ -21,13 +21,14 @@ class Entry extends Model
     /** couple_id fica de fora de propósito: nunca vem do cliente. */
     protected $fillable = [
         'owner_id', 'kind', 'name', 'amount_cents', 'month', 'due_on', 'category_id', 'card_id',
-        'paid', 'joint', 'paid_by', 'recurrence_id', 'installment_label', 'external_id',
+        'paid', 'joint', 'paid_by', 'recurrence_id', 'installment_label', 'external_id', 'purchased_on',
     ];
 
     protected function casts(): array
     {
         return [
             'month' => 'date:Y-m-d',
+            'purchased_on' => 'date:Y-m-d',
             'due_on' => 'date:Y-m-d',
             'paid' => 'boolean',
             'joint' => 'boolean',
