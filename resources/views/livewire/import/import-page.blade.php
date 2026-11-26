@@ -13,6 +13,7 @@
                 <span class="text-sm text-muted">{{ $file ? $file->getClientOriginalName() : 'Use a sua planilha “Orç - Mês”' }}</span>
                 <input id="file" type="file" wire:model="file" accept=".xlsx" class="sr-only" />
             </label>
+            <p wire:loading wire:target="file" class="rounded-2xl bg-brand-soft px-4 py-3 text-sm font-bold text-brand" role="status" data-testid="loading-file">Enviando e lendo o arquivo… aguarde.</p>
             @error('file') <p class="text-sm font-bold text-neg" data-testid="file-error">{{ $message }}</p> @enderror
 
             @if (count($sheets) > 1)
@@ -22,7 +23,7 @@
             <div><label for="month" class="nf-label">Importar para o mês</label><input id="month" type="month" wire:model="month" class="nf-input" />@error('month') <p class="text-sm font-bold text-neg">{{ $message }}</p> @enderror</div>
 
             <p class="rounded-2xl bg-[#FFF1D6] px-4 py-3 text-sm font-medium text-[#6B4600]">Se o mês já tiver dados, a importação é recusada: limpe o mês antes ou escolha outro.</p>
-            <button type="submit" class="nf-btn" wire:loading.attr="disabled">Ver prévia</button>
+            <button type="submit" class="nf-btn" wire:loading.attr="disabled" wire:target="preview,file"><span wire:loading.remove wire:target="preview">Ver prévia</span><span wire:loading wire:target="preview">Lendo a planilha…</span></button>
             <a href="{{ route('import.ofx') }}" wire:navigate class="text-center text-sm font-bold text-brand">Importar fatura do cartão (.ofx) ›</a>
         </form>
     @else
@@ -87,6 +88,6 @@
             @endforelse
         </section>
 
-        <div class="flex gap-3"><button type="button" wire:click="cancel" class="nf-btn-ghost flex-1">Cancelar</button><button type="button" wire:click="confirm" class="nf-btn flex-1" data-testid="confirm">Importar para {{ str(\Carbon\Carbon::createFromFormat('!Y-m', $month)->translatedFormat('F/Y'))->ucfirst() }}</button></div>
+        <div class="flex gap-3"><button type="button" wire:click="cancel" class="nf-btn-ghost flex-1">Cancelar</button><button type="button" wire:click="confirm" wire:loading.attr="disabled" wire:target="confirm" class="nf-btn flex-1" data-testid="confirm"><span wire:loading wire:target="confirm">Gravando… </span>Importar para {{ str(\Carbon\Carbon::createFromFormat('!Y-m', $month)->translatedFormat('F/Y'))->ucfirst() }}</button></div>
     @endunless
 </div>

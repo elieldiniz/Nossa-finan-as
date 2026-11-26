@@ -85,6 +85,8 @@ class ImportPage extends Component
             $this->suggestMonth($parser);
         } catch (InvalidImportFile $e) {
             $this->error = $e->getMessage();
+        } catch (\Throwable $e) {
+            $this->error = $this->unexpected('ler o arquivo', $e);
         }
     }
 
@@ -99,8 +101,8 @@ class ImportPage extends Component
     {
         try {
             $detected = $parser->parse($this->localFile(), $this->sheet)->detectedMonth;
-        } catch (InvalidImportFile) {
-            return;
+        } catch (\Throwable) {
+            return; // a sugestão de mês é opcional: o erro de verdade aparece ao pedir a prévia
         }
 
         if ($detected) {
@@ -127,6 +129,10 @@ class ImportPage extends Component
             $payload = $parser->parse($this->localFile(), $this->sheet);
         } catch (InvalidImportFile $e) {
             $this->error = $e->getMessage();
+
+            return;
+        } catch (\Throwable $e) {
+            $this->error = $this->unexpected('ler a planilha', $e);
 
             return;
         }
@@ -290,6 +296,10 @@ class ImportPage extends Component
             $this->error = $e->getMessage();
 
             return;
+        } catch (\Throwable $e) {
+            $this->error = $this->unexpected('gravar a importação', $e);
+
+            return;
         }
 
         $this->done = "Importado: {$counts['entries']} lançamentos, {$counts['cards']} cartões, {$counts['debts']} pendências de pessoas.";
@@ -312,6 +322,14 @@ class ImportPage extends Component
      * Caminho local do arquivo enviado. Na hospedagem o envio pode ir para um armazenamento na nuvem (sem caminho local),
      * então o conteúdo é lido do arquivo enviado e gravado num arquivo temporário do servidor.
      */
+    /** Falha inesperada: registra no log e mostra o motivo na tela (em vez de a tela só recarregar sem explicar). */
+    private function unexpected(string $action, \Throwable $e): string
+    {
+        report($e);
+
+        return "Não consegui {$action}. Motivo: ".class_basename($e).' — '.Str::limit($e->getMessage(), 180).'. Se continuar, avise com esta mensagem.';
+    }
+
     private function localFile(): string
     {
         if ($this->localPath === null || ! is_file($this->localPath)) {

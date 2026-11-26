@@ -216,3 +216,13 @@ it('desmarcar tudo não deixa importar', function () {
 
     expect(Entry::count())->toBe(0);
 });
+
+it('falha inesperada na gravação mostra o motivo na tela em vez de ficar muda', function () {
+    [$eliel] = makeCouple();
+    $tela = Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview');
+
+    // simula um erro de banco ao gravar
+    Entry::saving(fn () => throw new RuntimeException('coluna muito longa'));
+
+    $tela->call('confirm')->assertSee('Não consegui gravar a importação')->assertSee('RuntimeException')->assertSee('coluna muito longa');
+});
