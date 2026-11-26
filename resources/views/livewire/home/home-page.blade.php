@@ -35,9 +35,11 @@
                 <span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold">{{ $bill['name'] }}</span>
                     <span class="text-xs {{ $bill['days_left'] <= 1 ? 'font-bold text-neg' : 'text-muted' }}">{{ $bill['days_left'] === 0 ? 'vence hoje' : ($bill['days_left'] === 1 ? 'vence amanhã' : 'vence em '.$bill['days_left'].' dias') }} · {{ \Carbon\Carbon::parse($bill['due'])->format('d/m') }}</span></span>
                 <span class="text-sm font-extrabold">{{ Money::format($bill['amount']) }}</span>
-                @unless ($view === 'par')
+                @if ($bill['owner_id'] !== null && $bill['owner_id'] !== auth()->id())
+                    <span class="text-xs font-semibold text-muted" data-testid="bill-owner">de {{ \Illuminate\Support\Str::before($owners[$bill['owner_id']] ?? 'outra pessoa', ' ') }}</span>
+                @elseif ($view !== 'par')
                     <button type="button" wire:click="payBill('{{ $bill['type'] }}', {{ $bill['id'] }}, {{ $bill['month'] ? "'".$bill['month']."'" : 'null' }})" class="nf-chip !min-h-9 !px-3 !text-xs">Pago</button>
-                @endunless
+                @endif
             </div>
         @empty
             <p class="mt-2 text-sm text-muted" data-testid="no-bills">Nada vence nos próximos 7 dias. <a href="{{ route('cards') }}" wire:navigate class="font-bold text-brand">Cadastre o “vence dia” dos cartões</a> e use “Vence em” ao lançar uma conta para ela aparecer aqui.</p>

@@ -57,3 +57,14 @@ it('o par não marca como paga a conta do outro (403) e na visão do par não h�
 
     Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-10')->call('setView', 'par')->assertDontSee('>Pago</button>', false);
 });
+
+it('conta do outro parceiro mostra "de Ana" em vez do botão Pago', function () {
+    [$eliel, $ana] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-10-05 09:00'));
+    makeEntry($ana, ['name' => 'Da Ana', 'due_on' => '2026-10-07']);
+    makeEntry($eliel, ['name' => 'Do Eliel', 'due_on' => '2026-10-07']);
+
+    Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-10')
+        ->assertSeeHtml('data-testid="bill-owner">de Ana<')->assertSee('Da Ana')->assertSee('Do Eliel')
+        ->assertSeeHtml('>Pago</button>');
+});

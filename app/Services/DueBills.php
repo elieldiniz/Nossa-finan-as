@@ -34,7 +34,7 @@ class DueBills
             }
 
             $items[] = ['type' => 'entry', 'id' => $entry->id, 'month' => null, 'name' => $entry->name,
-                'due' => $entry->due_on->toDateString(), 'amount' => $entry->amount_cents, 'paid' => false];
+                'due' => $entry->due_on->toDateString(), 'amount' => $entry->amount_cents, 'paid' => false, 'owner_id' => $entry->owner_id];
         }
 
         foreach (Card::query()->whereNotNull('due_day')->get() as $card) {
@@ -55,7 +55,7 @@ class DueBills
 
                 if ($total > 0) {
                     $items[] = ['type' => 'invoice', 'id' => $card->id, 'month' => $invoiceMonth->format('Y-m'), 'name' => 'Fatura '.$card->name,
-                        'due' => $due->toDateString(), 'amount' => $total, 'paid' => $paid];
+                        'due' => $due->toDateString(), 'amount' => $total, 'paid' => $paid, 'owner_id' => null];
                 }
             }
         }

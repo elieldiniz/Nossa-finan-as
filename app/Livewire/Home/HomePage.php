@@ -8,6 +8,7 @@ use App\Models\Card;
 use App\Models\CardInvoice;
 use App\Models\Entry;
 use App\Models\Goal;
+use App\Models\User;
 use App\Services\DueBills;
 use App\Services\EntryService;
 use App\Services\MonthSummary;
@@ -58,6 +59,7 @@ class HomePage extends Component
             'recent' => $rows->take(5),
             'byCategory' => $this->expensesByCategory($summary),
             'goalAlert' => $this->goalAlert($summary),
+            'owners' => User::where('couple_id', auth()->user()->couple_id)->pluck('name', 'id'),
             'due' => app(DueBills::class)->upcoming(CarbonImmutable::now(), $this->context()),
             'investing' => $this->investing($summary),
         ]);
