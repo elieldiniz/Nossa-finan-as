@@ -109,7 +109,9 @@ class OfxPage extends Component
         $bank = mb_strtolower((string) $bank);
         $hint = str_contains($bank, 'nu pagamentos') || str_contains($bank, 'nubank') ? 'nubank' : trim(explode(' ', $bank)[0] ?? '');
 
-        $match = $hint !== '' ? Card::all()->first(fn (Card $c) => str_contains(mb_strtolower($c->name), $hint)) : null;
+        $cards = Card::orderBy('name')->get();
+        // nome igual ao do banco primeiro ("Nubank"); senão o primeiro que contém ("Nubank Ana")
+        $match = $hint !== '' ? ($cards->first(fn (Card $c) => mb_strtolower(trim($c->name)) === $hint) ?? $cards->first(fn (Card $c) => str_contains(mb_strtolower($c->name), $hint))) : null;
 
         if ($match) {
             $this->cardId = $match->id;

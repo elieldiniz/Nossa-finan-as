@@ -125,3 +125,11 @@ it('a data de cada compra é guardada e aparece na tela do cartão e no Extrato'
     Livewire::actingAs($eliel)->test(CardDetail::class, ['card' => $card])->set('month', '2026-11')->assertSeeHtml('data-testid="line-date">22/11<');
     Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-11')->call('toggleCard', $card->id)->assertSee('22/11');
 });
+
+it('com "Nubank" e "Nubank Ana" cadastrados, sugere o de nome igual e dá para trocar', function () {
+    [$eliel] = makeCouple();
+    makeCard($eliel, 'Nubank Ana');
+    $nubank = makeCard($eliel, 'Nubank');
+
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoOfx())->assertSet('cardId', $nubank->id);
+});

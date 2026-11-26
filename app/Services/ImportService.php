@@ -37,8 +37,9 @@ class ImportService
      */
     /**
      * @param  array<int, int|null>  $dueDays  "vence dia" de cada cartão da planilha (mesma ordem de $payload->cards)
+     * @param  array<int, int|string|null>  $cardMap  cartão já cadastrado que corresponde a cada cartão da planilha (vazio = pelo nome, ou cria um novo)
      */
-    public function import(User $actor, ImportPayload $payload, CarbonImmutable $month, array $owners = [], array $dueDays = []): array
+    public function import(User $actor, ImportPayload $payload, CarbonImmutable $month, array $owners = [], array $dueDays = [], array $cardMap = []): array
     {
         Gate::forUser($actor)->authorize('create', Entry::class);
         $month = $month->startOfMonth();
@@ -50,7 +51,7 @@ class ImportService
             }
         }
 
-        return DB::transaction(function () use ($actor, $payload, $month, $owners, $dueDays) {
+        return DB::transaction(function () use ($actor, $payload, $month, $owners, $dueDays, $cardMap) {
             if ($this->monthHasData($month)) {
                 throw new InvalidArgumentException('Este mês já tem dados. Limpe o mês ou escolha outro para importar.');
             }
@@ -65,7 +66,8 @@ class ImportService
             }
 
             foreach ($payload->cards as $ci => $card) {
-                $model = Card::whereRaw('lower(name) = ?', [mb_strtolower($card['name'])])->first() ?? $this->newCard($actor, $card['name']);
+                $chosen = ! empty($cardMap[$ci]) ? Card::find((int) $cardMap[$ci]) : null; // escolhido na prévia (só cartões do casal)
+                $model = $chosen ?? Card::whereRaw('lower(name) = ?', [mb_strtolower($card['name'])])->first() ?? $this->newCard($actor, $card['name']);
                 $counts['cards']++;
 
                 $day = (int) ($dueDays[$ci] ?? $card['due_day'] ?? 0);

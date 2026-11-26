@@ -37,12 +37,19 @@
         </section>
 
         @if (count($preview->cards))
-            <section class="nf-card p-5" aria-label="Vencimento dos cartões" data-testid="due-days">
-                <h2 class="text-base font-extrabold">Vence dia (opcional)</h2>
-                <p class="mt-1 text-xs text-muted">A planilha não traz o vencimento. Informe o dia de cada cartão e a fatura aparece em Contas a vencer.</p>
-                <div class="mt-3 grid grid-cols-2 gap-3">
+            <section class="nf-card p-5" aria-label="Cartões da planilha" data-testid="due-days">
+                <h2 class="text-base font-extrabold">Cartões</h2>
+                <p class="mt-1 text-xs text-muted">Escolha a qual cartão já cadastrado cada um corresponde (para não criar repetido) e o dia em que a fatura vence.</p>
+                <div class="mt-3 flex flex-col gap-3">
                     @foreach ($preview->cards as $ci => $card)
-                        <div><label for="due-{{ $ci }}" class="nf-label">{{ $card['name'] }}</label><input id="due-{{ $ci }}" type="number" min="1" max="31" wire:model="dueDays.{{ $ci }}" placeholder="Dia" class="nf-input" data-testid="due-day-{{ $ci }}" /></div>
+                        <div class="rounded-2xl bg-ground p-3" wire:key="map-{{ $ci }}" data-testid="card-map-{{ $ci }}">
+                            <p class="text-sm font-extrabold">{{ $card['name'] }} <span class="text-xs font-semibold text-muted">na planilha · {{ Money::format($preview->cardTotal($card)) }}</span></p>
+                            <div class="mt-2 grid grid-cols-3 gap-2">
+                                <div class="col-span-2"><label for="map-{{ $ci }}" class="nf-label">É o cartão</label>
+                                    <select id="map-{{ $ci }}" wire:model.live="cardMap.{{ $ci }}" class="nf-input" data-testid="card-select-{{ $ci }}"><option value="">Criar novo “{{ $card['name'] }}”</option>@foreach ($cards as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select></div>
+                                <div><label for="due-{{ $ci }}" class="nf-label">Vence dia</label><input id="due-{{ $ci }}" type="number" min="1" max="31" wire:model="dueDays.{{ $ci }}" placeholder="Dia" class="nf-input" data-testid="due-day-{{ $ci }}" /></div>
+                            </div>
+                        </div>
                     @endforeach
                 </div>
             </section>

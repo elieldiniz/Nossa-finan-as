@@ -124,3 +124,44 @@ it('planilha com "Sicoob - vence dia 3": o dia vem preenchido na prévia e grava
     $card = Card::where('name', 'Bradesco')->first();
     expect($card)->not->toBeNull()->and($card->due_day)->toBe(12);
 });
+
+it('cartões já cadastrados com nome parecido: sugere o certo e não cria repetido', function () {
+    [$eliel] = makeCouple();
+    $bradescoAna = makeCard($eliel, 'Bradesco Ana');
+    $cresol = makeCard($eliel, 'Cresol');
+
+    $tela = Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->assertSet('cardMap.0', $bradescoAna->id)   // "Bradesco" combina com "Bradesco Ana"
+        ->assertSet('cardMap.1', $cresol->id)        // nome igual
+        ->assertSeeHtml('data-testid="card-select-0"');
+
+    $tela->call('confirm');
+
+    expect(Card::count())->toBe(2)  // nenhum cartão novo
+        ->and(Entry::where('card_id', $bradescoAna->id)->count())->toBeGreaterThan(0);
+});
+
+it('dá para trocar o cartão ou escolher "Criar novo" na prévia', function () {
+    [$eliel] = makeCouple();
+    $outro = makeCard($eliel, 'Outro');
+    $outro->update(['due_day' => 9]);
+
+    $tela = Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')
+        ->assertSet('cardMap.0', null)->set('cardMap.0', $outro->id)->assertSet('dueDays.0', 9)->set('cardMap.1', '');
+
+    $tela->call('confirm');
+
+    expect(Entry::where('card_id', $outro->id)->count())->toBeGreaterThan(0)
+        ->and(Card::where('name', 'Cresol')->exists())->toBeTrue()   // o 2º virou cartão novo, pelo nome da planilha
+        ->and(Card::where('name', 'Bradesco')->exists())->toBeFalse(); // o 1º foi para o "Outro"
+});
+
+it('não aceita mapear para um cartão de outro casal', function () {
+    [$eliel] = makeCouple();
+    [$estranho] = makeCouple('Outro', 'Casal');
+    $alheio = makeCard($estranho, 'Alheio');
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo())->call('preview')->set('cardMap.0', $alheio->id)->call('confirm');
+
+    expect(Entry::where('card_id', $alheio->id)->count())->toBe(0)->and(Card::withoutGlobalScopes()->where('name', 'Bradesco')->exists())->toBeTrue();
+});

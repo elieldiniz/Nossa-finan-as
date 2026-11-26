@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\ImportService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -40,6 +41,9 @@ class ImportPage extends Component
 
     /** @var array<string, int> */
     public array $owners = [];
+
+    /** Cartão já cadastrado para cada cartão da planilha (índice => id; vazio = criar novo). @var array<int, int|string|null> */
+    public array $cardMap = [];
 
     /** "Vence dia" de cada cartão da planilha (índice do cartão => dia). @var array<int, int|string|null> */
     public array $dueDays = [];
@@ -130,10 +134,34 @@ class ImportPage extends Component
         $this->payload = $payload->toArray();
         $this->owners = array_fill_keys(array_keys($payload->items()), auth()->id());
         $this->dueDays = [];
+        $this->cardMap = [];
+        $existing = Card::orderBy('name')->get();
         foreach ($payload->cards as $ci => $card) {
+            $match = $this->matchCard($existing, $card['name']);
+            $this->cardMap[$ci] = $match?->id;
             // o vencimento escrito na planilha ("Sicoob - vence dia 3") vale; senão o que o cartão já tem
-            $this->dueDays[$ci] = $card['due_day'] ?? Card::whereRaw('lower(name) = ?', [mb_strtolower($card['name'])])->value('due_day');
+            $this->dueDays[$ci] = $card['due_day'] ?? $match?->due_day;
         }
+    }
+
+    /** Ao trocar o cartão de uma linha, traz o vencimento dele (se a planilha não informou). */
+    public function updatedCardMap($value, $key): void
+    {
+        $key = (int) explode('.', (string) $key)[0];
+        $card = $value ? Card::find((int) $value) : null;
+        $fromSheet = $this->payload['cards'][$key]['due_day'] ?? null;
+
+        $this->dueDays[$key] = $fromSheet ?? $card?->due_day;
+    }
+
+    /** Cartão já cadastrado que combina com o nome da planilha: nome igual; senão um que contém (ou está contido no) nome. */
+    private function matchCard($cards, string $name): ?Card
+    {
+        $norm = fn (string $t) => mb_strtolower(trim(Str::ascii($t)));
+        $target = $norm($name);
+
+        return $cards->first(fn (Card $c) => $norm($c->name) === $target)
+            ?? $cards->first(fn (Card $c) => $target !== '' && (str_contains($norm($c->name), $target) || str_contains($target, $norm($c->name))));
     }
 
     public function confirm(ImportService $service): void
@@ -145,7 +173,7 @@ class ImportPage extends Component
         }
 
         try {
-            $counts = $service->import(auth()->user(), ImportPayload::fromArray($this->payload), $this->monthDate(), $this->owners, array_map(fn ($d) => $d === '' || $d === null ? null : (int) $d, $this->dueDays));
+            $counts = $service->import(auth()->user(), ImportPayload::fromArray($this->payload), $this->monthDate(), $this->owners, array_map(fn ($d) => $d === '' || $d === null ? null : (int) $d, $this->dueDays), $this->cardMap);
         } catch (InvalidArgumentException $e) {
             $this->error = $e->getMessage();
 
@@ -157,6 +185,7 @@ class ImportPage extends Component
         $this->file = null;
         $this->sheets = [];
         $this->sheet = null;
+        $this->cardMap = [];
     }
 
     public function cancel(): void
@@ -195,6 +224,7 @@ class ImportPage extends Component
             'items' => $payload?->items() ?? [],
             'closing' => $payload?->closing(),
             'members' => User::where('couple_id', auth()->user()->couple_id)->orderBy('id')->get(),
+            'cards' => Card::orderBy('name')->get(),
         ]);
     }
 }
