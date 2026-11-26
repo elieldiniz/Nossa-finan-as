@@ -5,6 +5,8 @@ use App\Models\Category;
 use App\Models\Entry;
 use App\Services\CategoryService;
 use App\Services\EntryService;
+use App\Services\MonthSummary;
+use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 
 it('o casal nasce com categorias de entrada (Salário, Renda extra, Reembolso, Rendimentos) e "Outros" serve para as duas', function () {
@@ -116,4 +118,36 @@ it('"Outros" aparece por último nas categorias', function () {
 
     expect(Category::forKind('entrada')->orderBy('position')->pluck('name')->last())->toBe('Outros')
         ->and(Category::forKind('saida')->orderBy('position')->pluck('name')->last())->toBe('Outros');
+});
+
+it('lança o 13º em dezembro: escolhe o mês e ele já conta na previsão daquele mês', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-25 10:00'));
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('kind', 'entrada')->set('amount', '3.000,00')->set('name', '13º salário')
+        ->set('month', '2026-12')->call('save')->assertHasNoErrors()->assertRedirect();
+
+    $e = Entry::first();
+    expect($e->month->format('Y-m'))->toBe('2026-12')->and($e->kind)->toBe('entrada')->and($e->amount_cents)->toBe(300000);
+
+    $dez = app(MonthSummary::class)->build($eliel, CarbonImmutable::parse('2026-12-01'));
+    $nov = app(MonthSummary::class)->build($eliel, CarbonImmutable::parse('2026-11-01'));
+    expect($dez['closing']->income)->toBe(300000)->and($nov['closing']->income)->toBe(0);
+});
+
+it('mês inválido mostra o erro e não grava', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('kind', 'entrada')->set('amount', '10,00')->set('name', 'X')->set('month', 'abc')->call('save');
+
+    expect(Entry::count())->toBe(0);
+});
+
+it('recorrente "Começa em" também aceita mês futuro', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('kind', 'entrada')->set('amount', '500,00')->set('name', 'Aluguel recebido')
+        ->set('month', '2027-02')->set('repeat', 'monthly')->call('save')->assertHasNoErrors();
+
+    expect(Entry::first()->month->format('Y-m'))->toBe('2027-02');
 });

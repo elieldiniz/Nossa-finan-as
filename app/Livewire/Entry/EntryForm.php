@@ -118,12 +118,13 @@ class EntryForm extends Component
 
         $this->validate([
             'kind' => ['required', 'in:entrada,saida,aporte'],
+            'month' => ['required', 'date_format:Y-m'],
             'dueOn' => ['nullable', 'date'],
             'amount' => ['required', 'string'],
             'name' => ['required', 'string', 'max:255'],
             'categoryId' => ['required', 'integer'],
             'repeat' => ['required', 'in:none,monthly,yearly,installments'],
-        ], [], ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria']);
+        ], [], ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria', 'month' => 'mês']);
 
         if (! Cache::add('entry-form-saved:'.$this->token, true, 120)) {
             return $this->redirectRoute('statement', ['m' => $this->month], navigate: true); // já salvo por um toque anterior

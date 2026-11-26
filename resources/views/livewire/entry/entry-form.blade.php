@@ -33,6 +33,13 @@
         @error('name') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror
     </div>
 
+    <div>
+        <label for="month" class="nf-label">{{ $repeat === 'none' ? ['entrada' => 'Mês em que recebe', 'aporte' => 'Mês do investimento', 'saida' => 'Mês do gasto'][$kind] : 'Começa em' }}</label>
+        <input id="month" type="month" wire:model.live="month" class="nf-input" data-testid="month-input" />
+        <p class="mt-1 text-xs text-muted">Pode ser um mês futuro, como o 13º em dezembro: ele já entra na previsão daquele mês.</p>
+        @error('month') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror
+    </div>
+
     <div class="grid grid-cols-2 gap-3">
         @if ($kind === 'saida')
             <div>
@@ -71,8 +78,7 @@
 
         @if ($repeat !== 'none')
             <div class="mt-3 grid grid-cols-2 gap-3 rounded-2xl bg-ground p-3">
-                <div><span class="nf-label">Começa em</span><div class="nf-input flex items-center font-bold">{{ $this->monthDate()->translatedFormat('m/Y') }}</div></div>
-                <div><label for="day" class="nf-label">{{ ['entrada' => 'Recebe no dia', 'aporte' => 'Aplica no dia', 'saida' => 'Cobra no dia'][$kind] }}</label><input id="day" type="number" min="1" max="31" wire:model="chargeDay" class="nf-input" /></div>
+                <div class="col-span-2"><label for="day" class="nf-label">{{ ['entrada' => 'Recebe no dia', 'aporte' => 'Aplica no dia', 'saida' => 'Cobra no dia'][$kind] }}</label><input id="day" type="number" min="1" max="31" wire:model="chargeDay" class="nf-input" /></div>
 
                 @if ($repeat === 'installments')
                     <div class="col-span-2"><label for="n" class="nf-label">Número de parcelas</label><input id="n" type="number" min="2" max="360" wire:model="installmentsTotal" class="nf-input" /></div>
@@ -93,7 +99,7 @@
     @if ($error) <p role="alert" class="text-sm font-bold text-neg" data-testid="form-error">{{ $error }}</p> @endif
 
     @if ($errors->any())
-        <p role="alert" class="rounded-2xl bg-neg-soft px-4 py-3 text-sm font-bold text-[#8E2F20]" data-testid="form-summary">Falta preencher: {{ collect($errors->keys())->map(fn ($k) => ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria'][$k] ?? $k)->unique()->implode(', ') }}.</p>
+        <p role="alert" class="rounded-2xl bg-neg-soft px-4 py-3 text-sm font-bold text-[#8E2F20]" data-testid="form-summary">Falta preencher: {{ collect($errors->keys())->map(fn ($k) => ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria', 'month' => 'mês'][$k] ?? $k)->unique()->implode(', ') }}.</p>
     @endif
     <button type="submit" class="nf-btn w-full" wire:loading.attr="disabled" wire:target="save">Salvar</button>
 </form>
