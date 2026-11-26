@@ -5,6 +5,8 @@ use App\Models\Card;
 use App\Models\Entry;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\Fixtures\OrcMesFixture;
 
 function arquivo(?string $path = null)
@@ -46,9 +48,13 @@ it('arquivo que não é planilha é rejeitado com mensagem e nada é gravado', f
 it('planilha sem a aba certa é rejeitada com mensagem', function () {
     [$eliel] = makeCouple();
 
-    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')
-        ->set('file', arquivo(OrcMesFixture::setembro(['sheet' => 'Outra'])))->call('preview')
-        ->assertSeeHtml('data-testid="form-error"')->assertSee('Orç - Mês');
+    $book = new Spreadsheet;
+    $book->getActiveSheet()->setTitle('Resumo')->setCellValue('A1', 'nada a ver');
+    $path = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
+    (new Xlsx($book))->save($path);
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo($path))->call('preview')
+        ->assertSeeHtml('data-testid="form-error"')->assertSee('Orç - Mês')->assertSee('Abas encontradas no arquivo: "Resumo"');
 });
 
 it('mês que já tem dados é recusado na prévia', function () {
@@ -95,4 +101,11 @@ it('planilha: "Vence dia" de cada cartão grava no cartão', function () {
         ->assertSeeHtml('data-testid="due-days"')->assertSeeHtml('data-testid="due-day-0"')->set('dueDays.0', 10)->call('confirm');
 
     expect(Card::orderBy('id')->first()->due_day)->toBe(10);
+});
+
+it('planilha com a aba chamada "Planilha1" (nome diferente) importa normalmente', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(ImportPage::class)->set('month', '2026-09')->set('file', arquivo(OrcMesFixture::setembro(['sheet' => 'Planilha1'])))->call('preview')
+        ->assertHasNoErrors()->assertSeeHtml('data-testid="preview"')->assertSee('Bradesco');
 });

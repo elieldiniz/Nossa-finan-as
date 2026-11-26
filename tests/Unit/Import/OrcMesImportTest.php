@@ -60,7 +60,11 @@ it('lê os gastos do vale', function () {
 it('rejeita aba errada, arquivo que não é planilha e planilha sem os blocos', function () {
     $parser = new OrcMesImport;
 
-    expect(fn () => $parser->parse(OrcMesFixture::setembro(['sheet' => 'Outra aba'])))->toThrow(InvalidImportFile::class);
+    $outra = new Spreadsheet;
+    $outra->getActiveSheet()->setTitle('Outra aba')->setCellValue('A1', 'nada a ver');
+    $caminhoOutra = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
+    (new Xlsx($outra))->save($caminhoOutra);
+    expect(fn () => $parser->parse($caminhoOutra))->toThrow(InvalidImportFile::class);
 
     $texto = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
     file_put_contents($texto, 'isto não é uma planilha');
@@ -133,5 +137,25 @@ it('arquivo sem aba "Orç - Mês" dá um erro claro', function () {
     $path = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
     (new Xlsx($book))->save($path);
 
-    expect(fn () => (new OrcMesImport)->parse($path))->toThrow(InvalidImportFile::class, 'aba chamada');
+    expect(fn () => (new OrcMesImport)->parse($path))->toThrow(InvalidImportFile::class, 'Não reconheci a planilha');
+});
+
+it('aba com outro nome ("Planilha1") é reconhecida pela estrutura', function () {
+    $path = OrcMesFixture::setembro(['sheet' => 'Planilha1']);
+    $import = new OrcMesImport;
+
+    expect($import->sheetNames($path))->toBe(['Planilha1']);
+
+    $p = $import->parse($path);
+    expect($p->detectedMonth)->toBe(9)->and(count($p->cards))->toBe(2)->and($p->vale['amount'])->toBe(225000);
+});
+
+it('o erro lista as abas encontradas para a pessoa saber o que ajustar', function () {
+    $book = new Spreadsheet;
+    $book->getActiveSheet()->setTitle('Resumo');
+    $book->createSheet()->setTitle('Gráficos');
+    $path = tempnam(sys_get_temp_dir(), 'x').'.xlsx';
+    (new Xlsx($book))->save($path);
+
+    expect(fn () => (new OrcMesImport)->parse($path))->toThrow(InvalidImportFile::class, 'Abas encontradas no arquivo: "Resumo", "Gráficos"');
 });

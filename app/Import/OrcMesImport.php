@@ -33,7 +33,8 @@ final class OrcMesImport
     private array $warnings = [];
 
     /**
-     * Abas que parecem a planilha "Orç - Mês" ("Orç - Mês", "Orç - Mês Outubro", ...), na ordem do arquivo.
+     * Abas que parecem a planilha "Orç - Mês": primeiro as que têm esse nome ("Orç - Mês", "Orç - Mês Outubro"…);
+     * se não houver nenhuma, as que têm a estrutura (blocos "Entradas", "Saídas" e "FECHAMENTO DO MÊS"), seja qual for o nome da aba.
      *
      * @return array<int, string>
      */
@@ -45,7 +46,33 @@ final class OrcMesImport
             throw new InvalidImportFile('Não foi possível ler o arquivo. Use uma planilha .xlsx.');
         }
 
-        return array_values(array_filter($names, fn (string $n) => str_starts_with($this->lower(trim($n)), $this->lower(self::SHEET))));
+        $byName = array_values(array_filter($names, fn (string $n) => str_starts_with($this->lower(trim($n)), $this->lower(self::SHEET))));
+
+        if ($byName !== []) {
+            return $byName;
+        }
+
+        $this->allSheetNames = $names;
+
+        return array_values(array_filter($names, fn (string $n) => $this->looksLikeOrcMes($path, $n)));
+    }
+
+    /** @var array<int, string> abas do arquivo (usado só na mensagem de erro) */
+    private array $allSheetNames = [];
+
+    private function looksLikeOrcMes(string $path, string $name): bool
+    {
+        try {
+            $reader = IOFactory::createReaderForFile($path);
+            $reader->setLoadSheetsOnly([$name]);
+            $this->sheet = $reader->load($path)->getSheetByName($name);
+            $this->lastRow = min($this->sheet->getHighestDataRow(), 5000);
+
+            return $this->findRow('B', fn ($t) => $t === 'entradas') !== null
+                && $this->findRow('B', fn ($t) => str_starts_with($t, 'fechamento')) !== null;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /** @param  string|null  $sheetName  aba a ler; sem ela, a primeira aba "Orç - Mês…" do arquivo */
@@ -54,7 +81,9 @@ final class OrcMesImport
         $names = $this->sheetNames($path);
 
         if ($names === []) {
-            throw new InvalidImportFile('A planilha precisa ter uma aba chamada "'.self::SHEET.'" (ou "'.self::SHEET.' Outubro", etc.).');
+            $found = $this->allSheetNames === [] ? '' : ' Abas encontradas no arquivo: '.implode(', ', array_map(fn ($n) => '"'.$n.'"', $this->allSheetNames)).'.';
+
+            throw new InvalidImportFile('Não reconheci a planilha: preciso da aba "'.self::SHEET.'" (ou "'.self::SHEET.' Outubro", etc.), com os blocos "Entradas", "Saídas" e "FECHAMENTO DO MÊS".'.$found);
         }
 
         $sheetName ??= $names[0];
