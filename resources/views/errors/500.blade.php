@@ -1,0 +1,1 @@
+@include('errors.layout', ['code' => 500, 'title' => 'Algo deu errado do nosso lado', 'message' => 'Não foi culpa sua. O que você estava fazendo pode não ter sido salvo: confira no Extrato antes de repetir, para não duplicar.', 'hint' => 'Se continuar, avise quem cuida do app informando o que estava fazendo.'])

@@ -1,0 +1,1 @@
+@include('errors.layout', ['code' => 419, 'title' => 'Sua sessão expirou', 'message' => 'Você ficou muito tempo sem usar o app e, por segurança, precisamos que entre de novo. Nada foi perdido do que já estava salvo.', 'hint' => 'Volte ao Início e refaça a ação.'])

@@ -22,6 +22,18 @@
             Sem internet: dá para ver o último mês, mas é necessário internet para lançar.
         </div>
 
+        {{-- Avisos de erro: sempre visíveis e em português (ver resources/js/errors.js) --}}
+        <div x-data="{ open: false, text: '', reload: false, timer: null }"
+             x-on:nf-toast.window="text = $event.detail.text; reload = $event.detail.reload; open = true; clearTimeout(timer); if (! reload) timer = setTimeout(() => open = false, 12000)"
+             x-show="open" x-cloak role="alert" aria-live="assertive" data-testid="toast"
+             class="fixed inset-x-4 bottom-24 z-[60] rounded-2xl bg-neg px-4 py-3 text-sm font-bold text-white shadow-lg lg:bottom-6 lg:left-auto lg:right-6 lg:w-96">
+            <p x-text="text"></p>
+            <div class="mt-2 flex gap-2">
+                <button type="button" x-show="reload" x-on:click="location.reload()" class="rounded-xl bg-white px-3 py-1.5 text-xs font-extrabold text-neg">Recarregar</button>
+                <button type="button" x-on:click="open = false" class="rounded-xl border border-white/60 px-3 py-1.5 text-xs font-extrabold">Fechar</button>
+            </div>
+        </div>
+
         @fluxScripts
     </body>
 </html>

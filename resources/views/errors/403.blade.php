@@ -1,0 +1,1 @@
+@include('errors.layout', ['code' => 403, 'title' => 'Você não pode fazer isso', 'message' => 'Esta ação é só de quem lançou. Cada pessoa do casal altera apenas o que é seu; o resto você pode ver, mas não mudar.'])
