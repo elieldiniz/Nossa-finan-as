@@ -8,6 +8,8 @@ use App\Models\Category;
 use App\Models\User;
 use App\Services\EntryService;
 use App\Support\Money;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -54,6 +56,9 @@ class EntryForm extends Component
 
     public ?string $error = null;
 
+    /** Identifica este formulário aberto: impede que um toque duplo em "Salvar" crie o lançamento duas vezes. */
+    public string $token = '';
+
     /** Troca de Saída para Entrada (e vice-versa): ajusta categoria e campos que só valem para gasto. */
     public function updatedKind(): void
     {
@@ -99,6 +104,7 @@ class EntryForm extends Component
     public function mount(): void
     {
         $this->ownerId = auth()->id();
+        $this->token = (string) Str::uuid();
         $this->chargeDay = (int) now()->format('j');
     }
 
@@ -118,6 +124,10 @@ class EntryForm extends Component
             'categoryId' => ['required', 'integer'],
             'repeat' => ['required', 'in:none,monthly,yearly,installments'],
         ], [], ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria']);
+
+        if (! Cache::add('entry-form-saved:'.$this->token, true, 120)) {
+            return $this->redirectRoute('statement', ['m' => $this->month], navigate: true); // já salvo por um toque anterior
+        }
 
         try {
             $cents = Money::parse($this->amount);
@@ -142,6 +152,7 @@ class EntryForm extends Component
                 'repeat' => $repeat,
             ]);
         } catch (InvalidArgumentException $e) {
+            Cache::forget('entry-form-saved:'.$this->token);
             $this->error = $e->getMessage();
 
             return null;

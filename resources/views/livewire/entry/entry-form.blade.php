@@ -94,5 +94,8 @@
 
     @if ($error) <p role="alert" class="text-sm font-bold text-neg" data-testid="form-error">{{ $error }}</p> @endif
 
-    <button type="submit" class="nf-btn w-full">Salvar</button>
+    @if ($errors->any())
+        <p role="alert" class="rounded-2xl bg-neg-soft px-4 py-3 text-sm font-bold text-[#8E2F20]" data-testid="form-summary">Falta preencher: {{ collect($errors->keys())->map(fn ($k) => ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria'][$k] ?? $k)->unique()->implode(', ') }}.</p>
+    @endif
+    <button type="submit" class="nf-btn w-full" wire:loading.attr="disabled" wire:target="save">Salvar</button>
 </form>

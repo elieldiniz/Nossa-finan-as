@@ -98,3 +98,22 @@ it('lançamento de pessoa de fora não aparece para o outro casal', function () 
     $this->actingAs($carlos);
     expect(Entry::count())->toBe(0);
 });
+
+it('toque duplo em Salvar não cria o lançamento duas vezes', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Picpay');
+
+    $tela = Livewire::actingAs($eliel)->test(EntryForm::class)
+        ->set('amount', '19,00')->set('name', 'Parcela picpay')->set('cardId', $card->id)
+        ->set('categoryId', categoryOf($eliel->couple_id, 'Outros')->id);
+    $tela->call('save')->call('save');
+
+    expect(Entry::count())->toBe(1);
+});
+
+it('sem categoria mostra o que falta junto do botão', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('amount', '19,00')->set('name', 'X')->call('save')
+        ->assertSeeHtml('data-testid="form-summary"')->assertSee('Falta preencher: categoria');
+});
