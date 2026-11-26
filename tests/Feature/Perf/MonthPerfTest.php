@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Home\HomePage;
+use App\Models\Entry;
 use App\Models\User;
 use App\Services\MonthSummary;
 use App\Services\OpenMonthService;
@@ -41,6 +42,8 @@ it('abre o mês seguinte herdando 200 itens em até 2 segundos', function () {
     foreach (range(1, 200) as $i) {
         fixo($eliel, valor: 100 + $i);
     }
+
+    Entry::where('month', '>=', '2026-02-01')->forceDelete();
 
     $inicio = hrtime(true);
     app(OpenMonthService::class)->open($eliel->couple_id, CarbonImmutable::parse('2026-02-01'));

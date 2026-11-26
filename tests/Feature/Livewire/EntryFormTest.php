@@ -3,6 +3,7 @@
 use App\Livewire\Entry\EntryForm;
 use App\Models\Entry;
 use App\Models\Recurrence;
+use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 
 function preencher($tela, array $extra = [])
@@ -116,4 +117,24 @@ it('sem categoria mostra o que falta junto do botão', function () {
 
     Livewire::actingAs($eliel)->test(EntryForm::class)->set('amount', '19,00')->set('name', 'X')->call('save')
         ->assertSeeHtml('data-testid="form-summary"')->assertSee('Falta preencher: categoria');
+});
+
+it('o formulário começa no mês de verdade, mesmo que ela esteja olhando outro mês', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-26 10:00'));
+
+    Livewire::actingAs($eliel)->withQueryParams(['m' => '2027-03'])->test(EntryForm::class)->assertSet('month', '2026-11');
+});
+
+it('recorrente criada no formulário aparece em novembro, dezembro e janeiro', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-26 10:00'));
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('amount', '163,00')->set('name', 'Havan')
+        ->set('categoryId', categoryOf($eliel->couple_id, 'Outros')->id)->set('repeat', 'monthly')->call('save')->assertHasNoErrors();
+
+    foreach (['2026-11', '2026-12', '2027-01', '2027-10'] as $mes) {
+        expect(Entry::where('name', 'Havan')->where('month', $mes.'-01')->count())->toBe(1);
+    }
+    expect(Entry::where('name', 'Havan')->count())->toBe(12);
 });

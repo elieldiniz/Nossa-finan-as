@@ -61,6 +61,10 @@ trait WithMonthView
     /** Mês pronto: traz fixos, assinaturas e parcelas para o mês aberto (idempotente). */
     protected function openMonth(): void
     {
-        app(OpenMonthService::class)->open(auth()->user()->couple_id, $this->monthDate());
+        $service = app(OpenMonthService::class);
+        $coupleId = auth()->user()->couple_id;
+
+        $service->open($coupleId, $this->monthDate());
+        $service->openRange($coupleId, CarbonImmutable::now(), 12); // a previsão sempre enxerga um ano à frente
     }
 }

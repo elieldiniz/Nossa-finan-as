@@ -17,11 +17,25 @@ class OpenMonthService
     /** @return int quantidade de ocorrências criadas agora */
     public function open(int $coupleId, CarbonImmutable $month): int
     {
-        $month = $month->startOfMonth();
+        return $this->openRange($coupleId, $month, 1);
+    }
+
+    /**
+     * Gera os lançamentos recorrentes de vários meses de uma vez: o mês de partida e os próximos ($months - 1).
+     * É o que faz uma conta "todo mês" ou parcelada já aparecer em todos os meses seguintes, sem ninguém abri-los.
+     *
+     * @param  int|null  $onlyRecurrenceId  gera só para esta recorrência (ao criar uma nova)
+     * @return int quantidade de ocorrências criadas agora
+     */
+    public function openRange(int $coupleId, CarbonImmutable $from, int $months = 12, ?int $onlyRecurrenceId = null): int
+    {
+        $from = $from->startOfMonth();
+        $last = $from->addMonths(max($months, 1) - 1);
         $created = 0;
 
         $recurrences = Recurrence::withoutGlobalScopes()->where('couple_id', $coupleId)
-            ->where('starts_on', '<=', $month->endOfMonth()->toDateString())
+            ->where('starts_on', '<=', $last->endOfMonth()->toDateString())
+            ->when($onlyRecurrenceId, fn ($q) => $q->whereKey($onlyRecurrenceId))
             ->get();
 
         if ($recurrences->isEmpty()) {
@@ -30,34 +44,39 @@ class OpenMonthService
 
         $existing = Entry::withoutGlobalScopes()->withTrashed()
             ->whereIn('recurrence_id', $recurrences->pluck('id'))
-            ->where('month', $month->toDateString())
-            ->pluck('recurrence_id')->flip();
+            ->whereBetween('month', [$from->toDateString(), $last->toDateString()])
+            ->get(['recurrence_id', 'month'])
+            ->mapWithKeys(fn (Entry $e) => [$e->recurrence_id.'|'.$e->month->format('Y-m') => true]);
 
-        DB::transaction(function () use ($recurrences, $existing, $month, &$created) {
-            foreach ($recurrences as $recurrence) {
-                $schedule = $recurrence->schedule();
+        DB::transaction(function () use ($recurrences, $existing, $from, $months, &$created) {
+            for ($i = 0; $i < max($months, 1); $i++) {
+                $month = $from->addMonths($i);
 
-                if (! $schedule->occursIn($month->year, $month->month) || $existing->has($recurrence->id)) {
-                    continue;
+                foreach ($recurrences as $recurrence) {
+                    $schedule = $recurrence->schedule();
+
+                    if (! $schedule->occursIn($month->year, $month->month) || $existing->has($recurrence->id.'|'.$month->format('Y-m'))) {
+                        continue;
+                    }
+
+                    $entry = new Entry([
+                        'owner_id' => $recurrence->owner_id,
+                        'kind' => $recurrence->kind,
+                        'name' => $recurrence->name,
+                        'amount_cents' => $recurrence->amount_cents,
+                        'month' => $month->toDateString(),
+                        'due_on' => $schedule->dateIn($month->year, $month->month)?->toDateString(),
+                        'category_id' => $recurrence->category_id,
+                        'card_id' => $recurrence->card_id,
+                        'joint' => $recurrence->joint,
+                        'paid' => false,
+                        'recurrence_id' => $recurrence->id,
+                        'installment_label' => $schedule->installmentLabel($month->year, $month->month),
+                    ]);
+                    $entry->couple_id = $recurrence->couple_id;
+                    $entry->saveQuietly();
+                    $created++;
                 }
-
-                $entry = new Entry([
-                    'owner_id' => $recurrence->owner_id,
-                    'kind' => $recurrence->kind,
-                    'name' => $recurrence->name,
-                    'amount_cents' => $recurrence->amount_cents,
-                    'month' => $month->toDateString(),
-                    'due_on' => $schedule->dateIn($month->year, $month->month)?->toDateString(),
-                    'category_id' => $recurrence->category_id,
-                    'card_id' => $recurrence->card_id,
-                    'joint' => $recurrence->joint,
-                    'paid' => false,
-                    'recurrence_id' => $recurrence->id,
-                    'installment_label' => $schedule->installmentLabel($month->year, $month->month),
-                ]);
-                $entry->couple_id = $recurrence->couple_id;
-                $entry->saveQuietly();
-                $created++;
             }
         });
 

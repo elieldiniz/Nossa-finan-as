@@ -46,7 +46,7 @@ class EntryService
         // Só saída passa por cartão: entrada e investimento nunca ficam ligados a um (senão sumiriam dos totais).
         $cardId = ($data['kind'] === Entry::SAIDA && ! empty($data['card_id'])) ? $this->cardId($actor, (int) $data['card_id']) : null;
 
-        return DB::transaction(function () use ($actor, $data, $month, $ownerId, $category, $cardId) {
+        $entry = DB::transaction(function () use ($actor, $data, $month, $ownerId, $category, $cardId) {
             $paid = (bool) ($data['paid'] ?? false);
             $recurrenceId = null;
             $label = null;
@@ -97,6 +97,13 @@ class EntryService
 
             return $entry;
         });
+
+        // Conta recorrente ou parcelada: já cria os meses seguintes (12 meses ou até a última parcela).
+        if (! empty($data['repeat'])) {
+            app(OpenMonthService::class)->openRange($actor->couple_id, $month, 12, $entry->recurrence_id);
+        }
+
+        return $entry;
     }
 
     public function setPaid(User $actor, Entry $entry, bool $paid): Entry

@@ -1,19 +1,43 @@
 <?php
 
 use App\Models\Entry;
+use App\Services\EntryService;
 use App\Services\OpenMonthService;
 use Carbon\CarbonImmutable;
 
-it('fixo de janeiro aparece em fevereiro sem ação manual', function () {
+it('fixo de janeiro já nasce em todos os 12 meses seguintes, sem ninguém abrir o mês', function () {
     [$eliel] = makeCouple();
     $this->actingAs($eliel);
     fixo($eliel);
 
-    $criadas = app(OpenMonthService::class)->open($eliel->couple_id, CarbonImmutable::parse('2026-02-01'));
+    expect(Entry::where('month', '2026-02-01')->count())->toBe(1)
+        ->and(Entry::where('month', '2026-02-01')->first()->paid)->toBeFalse()
+        ->and(Entry::where('month', '2026-12-01')->count())->toBe(1)
+        ->and(Entry::count())->toBe(12);
 
-    expect($criadas)->toBe(1)
-        ->and(Entry::where('month', '2026-02-01')->count())->toBe(1)
-        ->and(Entry::where('month', '2026-02-01')->first()->paid)->toBeFalse();
+    // abrir o mês depois não duplica nada
+    expect(app(OpenMonthService::class)->open($eliel->couple_id, CarbonImmutable::parse('2026-02-01')))->toBe(0)
+        ->and(Entry::count())->toBe(12);
+});
+
+it('parcelado já cria todas as parcelas de uma vez e marcar uma como paga não mexe nas outras', function () {
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel);
+    fixo($eliel, ['frequency' => 'installments', 'installments_total' => 5], 15000, '2026-11-01');
+
+    $parcelas = Entry::orderBy('month')->get();
+    expect($parcelas->pluck('installment_label')->all())->toBe(['1/5', '2/5', '3/5', '4/5', '5/5'])
+        ->and($parcelas->first()->month->format('Y-m'))->toBe('2026-11')->and($parcelas->last()->month->format('Y-m'))->toBe('2027-03');
+
+    app(EntryService::class)->setPaid($eliel, $parcelas[1], true);
+    expect(Entry::where('paid', false)->count())->toBe(4)->and(Entry::where('paid', true)->first()->installment_label)->toBe('2/5');
+});
+
+it('conta sem fim continua sendo completada a cada acesso (janela de 12 meses)', function () {
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel);
+    fixo($eliel);
+    expect(app(OpenMonthService::class)->openRange($eliel->couple_id, CarbonImmutable::parse('2026-06-01'), 12))->toBe(5); // jan–dez/26 já existiam: faltam só jan–mai/27
 });
 
 it('parcelado 3x aparece em jan, fev e mar e não em abril', function () {
@@ -51,6 +75,8 @@ it('herda 200 itens em até 2 segundos', function () {
     foreach (range(1, 200) as $i) {
         fixo($eliel, valor: 100 + $i);
     }
+
+    Entry::where('month', '>=', '2026-02-01')->forceDelete(); // só janeiro: o mês seguinte será gerado agora
 
     $inicio = hrtime(true);
     $criadas = app(OpenMonthService::class)->open($eliel->couple_id, CarbonImmutable::parse('2026-02-01'));

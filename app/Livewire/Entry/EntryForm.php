@@ -104,6 +104,7 @@ class EntryForm extends Component
     public function mount(): void
     {
         $this->ownerId = auth()->id();
+        $this->month = now()->format('Y-m'); // padrão: o mês de verdade (dá para trocar no campo de mês)
         $this->token = (string) Str::uuid();
         $this->chargeDay = (int) now()->format('j');
     }

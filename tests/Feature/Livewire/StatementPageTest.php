@@ -82,3 +82,17 @@ it('entrada e investimento usam palavras próprias', function () {
 
     Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertSee('A receber')->assertSee('✓ Aplicado');
 });
+
+it('na visão "Nós" cada um vê os lançamentos e parcelas dos dois', function () {
+    [$eliel, $ana] = makeCouple();
+    makeEntry($eliel, ['name' => 'Parcela do Eliel', 'installment_label' => '1/3']);
+    makeEntry($ana, ['name' => 'Parcela da Ana', 'installment_label' => '2/4']);
+
+    foreach ([$eliel, $ana] as $quem) {
+        Livewire::actingAs($quem)->test(StatementPage::class)->set('month', '2026-09')
+            ->assertSee('Parcela do Eliel')->assertSee('Parcela da Ana');
+    }
+
+    Livewire::actingAs($ana)->test(StatementPage::class)->set('month', '2026-09')->call('setView', 'eu')
+        ->assertSee('Parcela da Ana')->assertDontSee('Parcela do Eliel');
+});
