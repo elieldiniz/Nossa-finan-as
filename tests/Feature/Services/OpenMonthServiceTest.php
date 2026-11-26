@@ -6,6 +6,7 @@ use App\Services\OpenMonthService;
 use Carbon\CarbonImmutable;
 
 it('fixo de janeiro já nasce em todos os 12 meses seguintes, sem ninguém abrir o mês', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15 10:00'));
     [$eliel] = makeCouple();
     $this->actingAs($eliel);
     fixo($eliel);
@@ -34,6 +35,7 @@ it('parcelado já cria todas as parcelas de uma vez e marcar uma como paga não 
 });
 
 it('conta sem fim continua sendo completada a cada acesso (janela de 12 meses)', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15 10:00'));
     [$eliel] = makeCouple();
     $this->actingAs($eliel);
     fixo($eliel);

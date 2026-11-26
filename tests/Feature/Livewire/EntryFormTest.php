@@ -138,3 +138,64 @@ it('recorrente criada no formulário aparece em novembro, dezembro e janeiro', f
     }
     expect(Entry::where('name', 'Havan')->count())->toBe(12);
 });
+
+it('parcelado: nº de parcelas e última parcela andam juntos', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-26 10:00'));
+
+    $tela = Livewire::actingAs($eliel)->test(EntryForm::class)->set('amount', '150,00')->set('repeat', 'installments')
+        ->set('installmentsTotal', 10)->assertSet('lastMonth', '2027-08')
+        ->assertSeeHtml('data-testid="installments-summary"')->assertSee('10 parcelas de R$ 150,00')->assertSee('total R$ 1.500,00')->assertSee('de 11/2026 a 08/2027');
+
+    $tela->set('lastMonth', '2027-03')->assertSet('installmentsTotal', 5);
+    $tela->set('month', '2027-01')->assertSet('lastMonth', '2027-05');
+    $tela->set('lastMonth', '2026-01')->assertSet('installmentsTotal', 2); // antes do início: mínimo 2
+});
+
+it('parcelado sem número de parcelas mostra o erro e não grava', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('amount', '50,00')->set('name', 'SHEIN')
+        ->set('categoryId', categoryOf($eliel->couple_id, 'Outros')->id)->set('repeat', 'installments')->call('save')
+        ->assertSee('Falta preencher: número de parcelas');
+
+    expect(Entry::count())->toBe(0);
+});
+
+it('compra parcelada que já começou: marca como pagas as parcelas dos meses anteriores', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-26 10:00'));
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('amount', '150,00')->set('name', 'SHEIN')
+        ->set('categoryId', categoryOf($eliel->couple_id, 'Outros')->id)->set('repeat', 'installments')->set('installmentsTotal', 6)->set('month', '2026-08')
+        ->assertSeeHtml('data-testid="past-paid-option"')->call('save')->assertHasNoErrors();
+
+    $parcelas = Entry::orderBy('month')->get();
+    expect($parcelas)->toHaveCount(6)
+        ->and($parcelas->pluck('month')->map->format('Y-m')->all())->toBe(['2026-08', '2026-09', '2026-10', '2026-11', '2026-12', '2027-01'])
+        ->and($parcelas->pluck('paid')->all())->toBe([true, true, true, false, false, false])
+        ->and($parcelas[3]->installment_label)->toBe('4/6');
+});
+
+it('sem marcar o check, as parcelas antigas ficam pendentes; e início no mês atual nem mostra o check', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-26 10:00'));
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('repeat', 'monthly')->assertDontSeeHtml('data-testid="past-paid-option"');
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('amount', '80,00')->set('name', 'Academia')
+        ->set('categoryId', categoryOf($eliel->couple_id, 'Outros')->id)->set('repeat', 'monthly')->set('month', '2026-09')->set('markPastPaid', false)->call('save');
+
+    expect(Entry::where('month', '<', '2026-11-01')->where('paid', true)->count())->toBe(0)->and(Entry::where('month', '2026-09-01')->count())->toBe(1);
+});
+
+it('conta que começou há mais de 12 meses não deixa buracos até hoje', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-26 10:00'));
+
+    Livewire::actingAs($eliel)->test(EntryForm::class)->set('amount', '80,00')->set('name', 'Plano')
+        ->set('categoryId', categoryOf($eliel->couple_id, 'Outros')->id)->set('repeat', 'monthly')->set('month', '2025-01')->call('save');
+
+    // jan/2025 até out/2027 (hoje + 11 meses) = 34 meses, sem lacunas
+    expect(Entry::count())->toBe(34)->and(Entry::where('month', '2025-09-01')->exists())->toBeTrue();
+});

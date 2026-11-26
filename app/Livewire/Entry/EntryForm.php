@@ -8,8 +8,10 @@ use App\Models\Category;
 use App\Models\User;
 use App\Services\EntryService;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -51,6 +53,12 @@ class EntryForm extends Component
 
     public ?int $installmentsTotal = null;
 
+    /** Última parcela (Y-m): fica sincronizada com o número de parcelas. */
+    public ?string $lastMonth = null;
+
+    /** Conta que já começou: marca como pagas as parcelas/meses anteriores ao mês atual. */
+    public bool $markPastPaid = true;
+
     #[Url(as: 'vence')]
     public ?string $dueOn = null; // "Vence em" (só para saída que não se repete)
 
@@ -83,6 +91,56 @@ class EntryForm extends Component
                 $this->repeat = 'none'; // só saída é parcelada (parcelas a receber ficam em Pessoas)
             }
         }
+    }
+
+    public function updatedInstallmentsTotal(): void
+    {
+        $this->resetValidation('installmentsTotal');
+        $this->syncLastMonth();
+    }
+
+    public function updatedMonth(): void
+    {
+        $this->resetValidation('month');
+        $this->syncLastMonth();
+    }
+
+    public function updatedLastMonth(): void
+    {
+        $this->resetValidation('installmentsTotal');
+        $last = $this->lastMonth ? CarbonImmutable::createFromFormat('!Y-m', $this->lastMonth) : null;
+
+        if (! $last || $last->format('Y-m') !== $this->lastMonth) {
+            return;
+        }
+
+        $n = $this->monthDate()->diffInMonths($last, false) + 1;
+        $this->installmentsTotal = (int) max(2, min(360, $n));
+        $this->syncLastMonth(); // se escolheu um mês antes da primeira parcela, volta para o mínimo (2 parcelas)
+    }
+
+    private function syncLastMonth(): void
+    {
+        $this->lastMonth = $this->installmentsTotal && $this->installmentsTotal >= 2
+            ? $this->monthDate()->addMonths($this->installmentsTotal - 1)->format('Y-m')
+            : null;
+    }
+
+    public function startsInThePast(): bool
+    {
+        return $this->monthDate()->lessThan(CarbonImmutable::now()->startOfMonth());
+    }
+
+    /** Valor digitado em centavos (null se ainda não dá para ler). */
+    public function amountCents(): ?int
+    {
+        try {
+            $cents = Money::parse($this->amount);
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        return $cents > 0 ? $cents : null;
     }
 
     public function updatedName(): void
@@ -125,7 +183,8 @@ class EntryForm extends Component
             'name' => ['required', 'string', 'max:255'],
             'categoryId' => ['required', 'integer'],
             'repeat' => ['required', 'in:none,monthly,yearly,installments'],
-        ], [], ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria', 'month' => 'mês']);
+            'installmentsTotal' => [Rule::requiredIf($this->repeat === 'installments'), 'nullable', 'integer', 'min:2', 'max:360'],
+        ], [], ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria', 'month' => 'mês', 'installmentsTotal' => 'número de parcelas']);
 
         if (! Cache::add('entry-form-saved:'.$this->token, true, 120)) {
             return $this->redirectRoute('statement', ['m' => $this->month], navigate: true); // já salvo por um toque anterior
@@ -152,6 +211,7 @@ class EntryForm extends Component
                 'owner_id' => $this->ownerId,
                 'paid' => $this->paid,
                 'repeat' => $repeat,
+                'mark_past_paid' => $repeat !== null && $this->markPastPaid && $this->startsInThePast(),
             ]);
         } catch (InvalidArgumentException $e) {
             Cache::forget('entry-form-saved:'.$this->token);

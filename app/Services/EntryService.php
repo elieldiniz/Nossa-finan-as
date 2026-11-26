@@ -98,9 +98,17 @@ class EntryService
             return $entry;
         });
 
-        // Conta recorrente ou parcelada: já cria os meses seguintes (12 meses ou até a última parcela).
+        // Conta recorrente ou parcelada: já cria os meses seguintes (12 meses à frente do mais recente entre o início e hoje)
         if (! empty($data['repeat'])) {
-            app(OpenMonthService::class)->openRange($actor->couple_id, $month, 12, $entry->recurrence_id);
+            $thisMonth = CarbonImmutable::now()->startOfMonth();
+            $months = max(12, (int) $month->diffInMonths($thisMonth, false) + 12);
+            app(OpenMonthService::class)->openRange($actor->couple_id, $month, min($months, 400), $entry->recurrence_id);
+
+            // "Já comecei antes": as parcelas/meses anteriores ao mês atual entram como pagos
+            if (! empty($data['mark_past_paid'])) {
+                Entry::query()->where('recurrence_id', $entry->recurrence_id)->where('month', '<', $thisMonth->toDateString())
+                    ->update(['paid' => true, 'paid_by' => $actor->id]);
+            }
         }
 
         return $entry;

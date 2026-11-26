@@ -33,12 +33,14 @@
         @error('name') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror
     </div>
 
+    @if ($repeat === 'none')
     <div>
-        <label for="month" class="nf-label">{{ $repeat === 'none' ? ['entrada' => 'Mês em que recebe', 'aporte' => 'Mês do investimento', 'saida' => 'Mês do gasto'][$kind] : 'Começa em' }}</label>
+        <label for="month" class="nf-label">{{ ['entrada' => 'Mês em que recebe', 'aporte' => 'Mês do investimento', 'saida' => 'Mês do gasto'][$kind] }}</label>
         <input id="month" type="month" wire:model.live="month" class="nf-input" data-testid="month-input" />
         <p class="mt-1 text-xs text-muted">Pode ser um mês futuro, como o 13º em dezembro: ele já entra na previsão daquele mês.</p>
         @error('month') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror
     </div>
+    @endif
 
     <div class="grid grid-cols-2 gap-3">
         @if ($kind === 'saida')
@@ -78,10 +80,26 @@
 
         @if ($repeat !== 'none')
             <div class="mt-3 grid grid-cols-2 gap-3 rounded-2xl bg-ground p-3">
+                <div class="col-span-2">
+                    <label for="month" class="nf-label">{{ $repeat === 'installments' ? 'Primeira parcela em' : 'Começa em' }}</label>
+                    <input id="month" type="month" wire:model.live="month" class="nf-input" data-testid="month-input" />
+                    @error('month') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror
+                </div>
+                @if ($this->startsInThePast())
+                    <label class="col-span-2 flex min-h-11 items-start gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold" data-testid="past-paid-option">
+                        <input type="checkbox" wire:model="markPastPaid" class="mt-0.5 size-5 shrink-0 accent-brand" />
+                        <span>Marcar como {{ ['entrada' => 'recebidos', 'aporte' => 'aplicados', 'saida' => 'pagos'][$kind] }} os meses anteriores a {{ $this->monthDate()->isSameYear(\Carbon\CarbonImmutable::now()) ? \Carbon\CarbonImmutable::now()->translatedFormat('F') : \Carbon\CarbonImmutable::now()->translatedFormat('F/Y') }} <span class="block text-xs font-normal text-muted">Use quando a conta já começou: só o que ainda falta fica pendente.</span></span>
+                    </label>
+                @endif
                 <div class="col-span-2"><label for="day" class="nf-label">{{ ['entrada' => 'Recebe no dia', 'aporte' => 'Aplica no dia', 'saida' => 'Cobra no dia'][$kind] }}</label><input id="day" type="number" min="1" max="31" wire:model="chargeDay" class="nf-input" /></div>
 
                 @if ($repeat === 'installments')
-                    <div class="col-span-2"><label for="n" class="nf-label">Número de parcelas</label><input id="n" type="number" min="2" max="360" wire:model="installmentsTotal" class="nf-input" /></div>
+                    <div><label for="n" class="nf-label">Nº de parcelas</label><input id="n" type="number" min="2" max="360" wire:model.live.debounce.400ms="installmentsTotal" class="nf-input" /></div>
+                    <div><label for="last" class="nf-label">Última parcela em</label><input id="last" type="month" wire:model.live="lastMonth" class="nf-input" data-testid="last-month" /></div>
+                    @error('installmentsTotal') <p class="col-span-2 text-sm font-bold text-neg">{{ $message }}</p> @enderror
+                    @if ($installmentsTotal && $installmentsTotal >= 2 && $lastMonth && $this->amountCents())
+                        <p class="col-span-2 text-sm font-semibold text-brand" data-testid="installments-summary">{{ $installmentsTotal }} parcelas de {{ \App\Support\Money::format($this->amountCents()) }} · total {{ \App\Support\Money::format($this->amountCents() * $installmentsTotal) }} · de {{ $this->monthDate()->format('m/Y') }} a {{ \Carbon\CarbonImmutable::createFromFormat('!Y-m', $lastMonth)->format('m/Y') }}</p>
+                    @endif
                 @else
                     <div class="col-span-2">
                         <span class="nf-label">Termina</span>
@@ -99,7 +117,7 @@
     @if ($error) <p role="alert" class="text-sm font-bold text-neg" data-testid="form-error">{{ $error }}</p> @endif
 
     @if ($errors->any())
-        <p role="alert" class="rounded-2xl bg-neg-soft px-4 py-3 text-sm font-bold text-[#8E2F20]" data-testid="form-summary">Falta preencher: {{ collect($errors->keys())->map(fn ($k) => ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria', 'month' => 'mês'][$k] ?? $k)->unique()->implode(', ') }}.</p>
+        <p role="alert" class="rounded-2xl bg-neg-soft px-4 py-3 text-sm font-bold text-[#8E2F20]" data-testid="form-summary">Falta preencher: {{ collect($errors->keys())->map(fn ($k) => ['amount' => 'valor', 'name' => 'nome', 'categoryId' => 'categoria', 'month' => 'mês', 'installmentsTotal' => 'número de parcelas'][$k] ?? $k)->unique()->implode(', ') }}.</p>
     @endif
     <button type="submit" class="nf-btn w-full" wire:loading.attr="disabled" wire:target="save">Salvar</button>
 </form>
