@@ -89,7 +89,7 @@ class HomePage extends Component
             ->groupBy(fn (Entry $e) => $e->category?->name ?? 'Sem categoria')
             ->map(fn ($group) => (int) $group->sum('amount_cents'));
 
-        foreach ($summary['vale']['spends'] as $spend) { // o gasto do vale também é saída, na categoria escolhida
+        foreach (auth()->user()->vale_in_balance ? $summary['vale']['spends'] : [] as $spend) { // o gasto do vale também é saída, na categoria escolhida
             $name = $spend['category'] ?? 'Vale alimentação';
             $byCategory[$name] = ($byCategory[$name] ?? 0) + $spend['amount'];
         }

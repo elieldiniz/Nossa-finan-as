@@ -43,6 +43,13 @@
         </form>
     @endunless
 
+    <section class="nf-card p-5" aria-label="Vale no saldo" data-testid="in-balance">
+        <label class="flex min-h-11 items-start gap-3 text-sm font-semibold">
+            <input type="checkbox" wire:click="toggleInBalance" @checked($inBalance) class="mt-0.5 size-5 shrink-0 accent-brand" data-testid="in-balance-toggle" />
+            <span>Somar o vale alimentação no saldo <span class="block text-xs font-normal text-muted">{{ $inBalance ? 'Ligado: o valor do vale entra como Entrada e o que você gastou dele como Saída. É um dinheiro que só serve para comida.' : 'Desligado: o vale aparece só aqui e no Extrato, fora de Entradas, Saídas e Saldo, nos gráficos e nas metas.' }} Vale só para você; cada pessoa escolhe a sua.</span></span>
+        </label>
+    </section>
+
     @unless ($readOnly)
         <section class="nf-card p-5" aria-label="Importar extrato" data-testid="import">
             <h2 class="text-base font-extrabold">Importar extrato</h2>

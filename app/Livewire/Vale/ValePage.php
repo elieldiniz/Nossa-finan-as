@@ -151,6 +151,13 @@ class ValePage extends Component
         $this->error = null;
     }
 
+    /** Somar (ou não) o vale alimentação nas Entradas e Saídas do saldo. Vale só para quem escolhe. */
+    public function toggleInBalance(): void
+    {
+        $user = auth()->user();
+        $user->forceFill(['vale_in_balance' => ! $user->vale_in_balance])->save();
+    }
+
     public function removeSpend(int $id): void
     {
         $spend = ValeSpend::findOrFail($id);
@@ -178,6 +185,7 @@ class ValePage extends Component
             'hasOwn' => $vales->contains('owner_id', auth()->id()),
             'categories' => Category::forKind('saida')->orderBy('position')->get(),
             'today' => CarbonImmutable::now()->format('Y-m-d'),
+            'inBalance' => (bool) auth()->user()->vale_in_balance,
         ]);
     }
 }

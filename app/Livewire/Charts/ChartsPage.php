@@ -44,7 +44,7 @@ class ChartsPage extends Component
                 ->map(fn ($g) => (int) $g->sum('amount_cents'))->all())
             ->all();
 
-        $valeSpends = ValeSpend::query()->with('category')->whereBetween('month', [$start->toDateString(), $end->toDateString()])->get()
+        $valeSpends = ! auth()->user()->vale_in_balance ? collect() : ValeSpend::query()->with('category')->whereBetween('month', [$start->toDateString(), $end->toDateString()])->get()
             ->filter(fn (ValeSpend $x) => $context->applies($x->owner_id));
         foreach ($valeSpends as $spend) { // o gasto do vale entra na categoria que a pessoa escolheu
             $key = $spend->month->format('Y-m');

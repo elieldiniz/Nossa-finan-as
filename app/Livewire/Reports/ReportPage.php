@@ -31,7 +31,7 @@ class ReportPage extends Component
                 ->map(fn ($g) => (int) $g->sum('amount_cents'));
 
             // o gasto do vale alimentação entra na categoria que a pessoa escolheu (sem categoria: "Vale alimentação")
-            foreach (ValeSpend::with('category')->where('month', $date->toDateString())->get()->filter(fn ($s) => $context->applies($s->owner_id)) as $spend) {
+            foreach (! auth()->user()->vale_in_balance ? [] : ValeSpend::with('category')->where('month', $date->toDateString())->get()->filter(fn ($s) => $context->applies($s->owner_id)) as $spend) {
                 $name = $spend->category?->name ?? 'Vale alimentação';
                 $byName[$name] = ($byName[$name] ?? 0) + $spend->amount_cents;
             }

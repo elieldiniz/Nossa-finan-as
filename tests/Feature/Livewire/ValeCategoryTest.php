@@ -12,6 +12,8 @@ use App\Models\User;
 use App\Models\Vale;
 use App\Models\ValeSpend;
 use App\Services\CategoryService;
+use App\Services\MonthSummary;
+use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 
 it('a tela se chama Vale alimentação (menu, título, cartão do Início e linha do Extrato)', function () {
@@ -194,4 +196,57 @@ it('cancelar a edição limpa o formulário; só o dono edita o gasto', function
 
     Livewire::actingAs($eliel)->test(ValePage::class)->set('month', '2026-09')->call('editSpend', $gasto->id)->call('cancelEdit')->assertSet('editingSpendId', null)->assertSet('spendName', '');
     Livewire::actingAs($ana)->test(ValePage::class)->set('month', '2026-09')->call('editSpend', $gasto->id)->assertForbidden();
+});
+
+it('somar o vale no saldo é escolha de cada pessoa: desligado, o vale sai de Entradas, Saídas, Saldo, gastos por categoria, gráficos, relatório e metas', function () {
+    [$eliel, $ana] = makeCouple();
+    $vale = makeVale($eliel, 225000);
+    $mercado = categoryOf($eliel->couple_id, 'Mercado');
+    $this->actingAs($eliel);
+    makeEntry($eliel, ['name' => 'Luz', 'amount_cents' => 10000, 'month' => '2026-09-01', 'category_id' => $mercado->id]);
+    gastoVale($eliel, $vale, '2026-09', 'Feira', 45000, $mercado->id);
+    $resumo = fn ($user) => app(MonthSummary::class)->build($user, CarbonImmutable::parse('2026-09-01'))['closing'];
+
+    // ligado (padrão): valor do vale = entrada, gasto = saída
+    expect($eliel->vale_in_balance)->toBeTrue()->and($resumo($eliel)->income)->toBe(225000)->and($resumo($eliel)->expense)->toBe(55000);
+
+    Livewire::actingAs($eliel)->test(ValePage::class)->set('month', '2026-09')->assertSeeHtml('data-testid="in-balance-toggle"')->assertSee('Ligado')->call('toggleInBalance')->assertSee('Desligado');
+    $eliel->refresh();
+
+    expect($eliel->vale_in_balance)->toBeFalse()->and($resumo($eliel)->income)->toBe(0)->and($resumo($eliel)->expense)->toBe(10000)->and($resumo($eliel)->closing)->toBe(-10000);
+
+    $home = Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-09');
+    expect($home->viewData('byCategory')->all())->toBe(['Mercado' => 10000]);
+    expect(Livewire::actingAs($eliel)->test(ChartsPage::class)->set('month', '2026-09')->instance()->series()['donut'])->toHaveKey('Mercado');
+    expect(collect(Livewire::actingAs($eliel)->test(ReportPage::class)->set('month', '2026-09')->viewData('rows'))->pluck('current', 'name')->all())->toBe(['Mercado' => 10000]);
+
+    // a Ana não foi afetada: continua com o vale somado (cada um escolhe o seu)
+    expect($ana->fresh()->vale_in_balance)->toBeTrue();
+    Livewire::actingAs($eliel)->test(ValePage::class)->call('toggleInBalance'); // liga de novo
+    expect($eliel->fresh()->vale_in_balance)->toBeTrue()->and($resumo($eliel->fresh())->income)->toBe(225000);
+});
+
+it('com o vale fora do saldo ele continua aparecendo no Extrato (restante, fora do saldo) e no cartão do Início', function () {
+    [$eliel] = makeCouple();
+    $vale = makeVale($eliel, 225000);
+    gastoVale($eliel, $vale, '2026-09', 'Feira', 45000, null);
+    $eliel->forceFill(['vale_in_balance' => false])->save();
+
+    Livewire::actingAs($eliel->fresh())->test(StatementPage::class)->set('month', '2026-09')->assertSee('restante do vale · fora do saldo')->assertSee('R$ 1.800,00');
+    Livewire::actingAs($eliel->fresh())->test(HomePage::class)->set('month', '2026-09')->assertSeeHtml('data-testid="vale-card"')->assertSee('R$ 1.800,00');
+});
+
+it('a meta de gastos do mês e o limite por categoria também respeitam o vale fora do saldo', function () {
+    [$eliel] = makeCouple();
+    $vale = makeVale($eliel, 100000);
+    $mercado = categoryOf($eliel->couple_id, 'Mercado');
+    makeEntry($eliel, ['category_id' => $mercado->id, 'amount_cents' => 30000]);
+    gastoVale($eliel, $vale, '2026-09', 'Feira', 20000, $mercado->id);
+    $eliel->forceFill(['vale_in_balance' => false])->save();
+
+    $gastos = fn () => Livewire::actingAs($eliel->fresh())->test(GoalsPage::class)->set('month', '2026-09')->set('generalLimit', 'R$ 1.000,00')->call('saveGeneral')->viewData('totalSpent');
+    expect($gastos())->toBe(30000);
+
+    $eliel->forceFill(['vale_in_balance' => true])->save();
+    expect($gastos())->toBe(50000);
 });

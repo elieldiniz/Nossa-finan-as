@@ -66,8 +66,8 @@ class MonthSummary
             $plain->map(fn (Entry $e) => ['type' => $e->kind, 'amount' => $e->amount_cents])->all(),
             array_column($cards, 'total'),
             array_column($people, 'net'),
-            $vale['amount'],
-            $vale['spent'],
+            $viewer->vale_in_balance ? $vale['amount'] : 0, // o vale só entra no saldo se a pessoa quiser
+            $viewer->vale_in_balance ? $vale['spent'] : 0,
         );
 
         return [

@@ -46,6 +46,7 @@ class User extends Authenticatable // implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'notify_email' => 'boolean',
+            'vale_in_balance' => 'boolean',
             'password' => 'hashed',
         ];
     }
