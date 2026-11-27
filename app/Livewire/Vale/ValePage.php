@@ -3,10 +3,13 @@
 namespace App\Livewire\Vale;
 
 use App\Domain\ValeBalance;
+use App\Import\OfxCategorizer;
 use App\Livewire\Concerns\WithMonthView;
+use App\Models\Category;
 use App\Models\Vale;
 use App\Models\ValeSpend;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;
 use Livewire\Attributes\Layout;
@@ -17,7 +20,7 @@ use Livewire\Component;
  * Vale por parceiro (RF-17): valor se repete todo mês; a sobra NÃO passa para o mês seguinte.
  */
 #[Layout('components.layouts.app')]
-#[Title('Vale · Nossa Finanças')]
+#[Title('Vale alimentação · Nossa Finanças')]
 class ValePage extends Component
 {
     use WithMonthView;
@@ -27,6 +30,17 @@ class ValePage extends Component
     public string $spendName = '';
 
     public string $spendAmount = '';
+
+    public ?int $spendCategoryId = null;
+
+    /** Dia do gasto (aparece no extrato exportado). */
+    public ?string $spentOn = null;
+
+    /** A pessoa já escolheu a categoria: a sugestão pelo nome não troca mais. */
+    public bool $categoryTouched = false;
+
+    /** Período do extrato a exportar: mes (o aberto) ou tudo. */
+    public string $exportScope = 'mes';
 
     public ?string $error = null;
 
@@ -52,6 +66,21 @@ class ValePage extends Component
         $this->valeAmount = '';
     }
 
+    public function updatedSpendName(): void
+    {
+        if ($this->categoryTouched || trim($this->spendName) === '') {
+            return;
+        }
+
+        $suggested = OfxCategorizer::suggest($this->spendName);
+        $this->spendCategoryId = $suggested === 'Outros' ? null : Category::forKind('saida')->where('name', $suggested)->value('id');
+    }
+
+    public function updatedSpendCategoryId(): void
+    {
+        $this->categoryTouched = true;
+    }
+
     public function addSpend(): void
     {
         $this->error = null;
@@ -71,14 +100,23 @@ class ValePage extends Component
             return;
         }
 
-        $this->validate(['spendName' => ['required', 'string', 'max:255']], [], ['spendName' => 'nome']);
+        $this->validate(['spendName' => ['required', 'string', 'max:255'], 'spentOn' => ['nullable', 'date'], 'spendCategoryId' => ['nullable', 'integer']], [], ['spendName' => 'nome', 'spentOn' => 'data']);
+
+        $day = $this->spentOn ? CarbonImmutable::parse($this->spentOn) : null;
+        if ($day !== null && $day->format('Y-m') !== $this->monthDate()->format('Y-m')) {
+            $this->error = 'A data precisa ser de '.$this->monthDate()->translatedFormat('F \d\e Y').', o mês aberto.';
+
+            return;
+        }
+
+        $categoryId = $this->spendCategoryId ? Category::forKind('saida')->whereKey($this->spendCategoryId)->value('id') : null;
         Gate::authorize('create', ValeSpend::class);
 
-        $spend = new ValeSpend(['vale_id' => $vale->id, 'owner_id' => auth()->id(), 'name' => $this->spendName, 'amount_cents' => $cents, 'month' => $this->monthDate()->toDateString()]);
+        $spend = new ValeSpend(['vale_id' => $vale->id, 'owner_id' => auth()->id(), 'name' => $this->spendName, 'category_id' => $categoryId, 'amount_cents' => $cents, 'month' => $this->monthDate()->toDateString(), 'spent_on' => $day?->toDateString()]);
         $spend->couple_id = auth()->user()->couple_id;
         $spend->save();
 
-        $this->reset('spendName', 'spendAmount');
+        $this->reset('spendName', 'spendAmount', 'spendCategoryId', 'categoryTouched');
     }
 
     public function removeSpend(int $id): void
@@ -94,7 +132,7 @@ class ValePage extends Component
         $month = $this->monthDate()->toDateString();
 
         $vales = Vale::with('owner')->get()->filter(fn (Vale $v) => $context->applies($v->owner_id))->values();
-        $spends = ValeSpend::where('month', $month)->orderBy('id')->get()->groupBy('vale_id');
+        $spends = ValeSpend::with('category')->where('month', $month)->orderBy('id')->get()->groupBy('vale_id');
 
         $cards = $vales->map(fn (Vale $v) => [
             'vale' => $v,
@@ -103,6 +141,11 @@ class ValePage extends Component
             'mine' => $v->owner_id === auth()->id(),
         ]);
 
-        return view('livewire.vale.vale-page', ['cards' => $cards, 'hasOwn' => $vales->contains('owner_id', auth()->id())]);
+        return view('livewire.vale.vale-page', [
+            'cards' => $cards,
+            'hasOwn' => $vales->contains('owner_id', auth()->id()),
+            'categories' => Category::forKind('saida')->orderBy('position')->get(),
+            'today' => CarbonImmutable::now()->format('Y-m-d'),
+        ]);
     }
 }

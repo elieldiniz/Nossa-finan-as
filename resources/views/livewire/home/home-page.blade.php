@@ -86,8 +86,8 @@
         </section>
     </div>
 
-    <a href="{{ route('vale') }}" wire:navigate class="nf-card block p-5" aria-label="Vale" data-testid="vale-card">
-        <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Vale</h2><span class="text-base font-extrabold text-pos">{{ Money::format($summary['vale']['remaining']) }}</span></div>
+    <a href="{{ route('vale') }}" wire:navigate class="nf-card block p-5" aria-label="Vale alimentação" data-testid="vale-card">
+        <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Vale alimentação</h2><span class="text-base font-extrabold text-pos">{{ Money::format($summary['vale']['remaining']) }}</span></div>
         @php $v = $summary['vale']; $pct = $v['amount'] > 0 ? max(0, min(100, intdiv($v['remaining'] * 100, $v['amount']))) : 0; @endphp
         <div class="mt-2 h-2.5 overflow-hidden rounded-full bg-line"><div class="h-full bg-brand" style="width: {{ $pct }}%"></div></div>
         <p class="mt-1 text-xs text-muted">restante de {{ Money::format($v['amount']) }}</p>

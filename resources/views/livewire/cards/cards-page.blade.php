@@ -77,7 +77,7 @@
                     <ul class="mt-1 text-muted">@foreach ($cleanRows as $row)<li class="flex justify-between"><span>{{ $row['name'] }}</span><span>{{ $row['count'] }} · {{ Money::format($row['total']) }}</span></li>@endforeach</ul>
                 </div>
                 <label class="mt-3 flex min-h-11 items-start gap-2 text-sm font-semibold"><input type="checkbox" wire:model="stopSeries" class="mt-0.5 size-5 shrink-0 accent-brand" data-testid="stop-series" /> <span>Parar também as parceladas e fixas daqui para frente <span class="block text-xs font-normal text-muted">Sem isso, a próxima parcela volta no mês seguinte.</span></span></label>
-                <p class="mt-3 text-xs text-muted">Você poderá desfazer logo depois. Vale, pessoas e contas sem cartão não são mexidos.</p>
+                <p class="mt-3 text-xs text-muted">Você poderá desfazer logo depois. Vale alimentação, pessoas e contas sem cartão não são mexidos.</p>
                 <div class="mt-4 flex gap-3">
                     <button type="button" wire:click="closeDialogs" class="nf-btn-ghost flex-1">Cancelar</button>
                     <button type="button" wire:click="cleanAll" wire:loading.attr="disabled" @disabled($totalCount === 0) class="nf-btn flex-1 !bg-neg" data-testid="clean-all-confirm">Excluir {{ $totalCount }}</button>

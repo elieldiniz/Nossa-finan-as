@@ -14,7 +14,7 @@ class CoupleBootstrap
     /** nome => tipo. "Outros" serve para entradas e saídas. */
     public const DEFAULT_CATEGORIES = [
         'Moradia' => 'saida', 'Mercado' => 'saida', 'Assinatura' => 'saida', 'Transporte' => 'saida', 'Saúde' => 'saida',
-        'Lazer' => 'saida', 'Educação' => 'saida', 'Pessoas' => 'saida', 'Vale' => 'saida', 'Outros' => 'ambas',
+        'Lazer' => 'saida', 'Educação' => 'saida', 'Pessoas' => 'saida', 'Vale alimentação' => 'saida', 'Outros' => 'ambas',
         'Salário' => 'entrada', 'Renda extra' => 'entrada', 'Reembolso' => 'entrada', 'Rendimentos' => 'entrada',
         'Reserva de emergência' => 'aporte', 'Renda fixa' => 'aporte', 'Ações e FIIs' => 'aporte', 'Previdência' => 'aporte', 'Outros investimentos' => 'aporte',
     ];

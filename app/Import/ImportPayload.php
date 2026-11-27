@@ -78,7 +78,7 @@ final class ImportPayload
             }
         }
         foreach ($this->vale['spends'] ?? [] as $si => $spend) {
-            $items["v{$si}"] = ['section' => 'Vale', 'label' => $spend['name'], 'name' => $spend['name'], 'amount' => $spend['amount'], 'type' => 'vale', 'skip' => ! empty($spend['skip'])];
+            $items["v{$si}"] = ['section' => 'Vale alimentação', 'label' => $spend['name'], 'name' => $spend['name'], 'amount' => $spend['amount'], 'type' => 'vale', 'skip' => ! empty($spend['skip'])];
         }
 
         return $items;

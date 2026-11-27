@@ -85,7 +85,7 @@ class MonthSummary
     private function vale(ViewContext $context, CarbonImmutable $month): array
     {
         $vales = Vale::query()->get()->filter(fn (Vale $v) => $context->applies($v->owner_id));
-        $spends = ValeSpend::query()->where('month', $month->toDateString())->get()
+        $spends = ValeSpend::query()->with('category')->where('month', $month->toDateString())->get()
             ->filter(fn (ValeSpend $s) => $context->applies($s->owner_id));
 
         $amount = (int) $vales->sum('amount_cents');
@@ -93,7 +93,7 @@ class MonthSummary
 
         return [
             'amount' => $amount, 'spent' => $spent, 'remaining' => ValeBalance::remaining($amount, $spends->pluck('amount_cents')->all()),
-            'spends' => $spends->sortBy('id')->map(fn (ValeSpend $x) => ['id' => $x->id, 'name' => $x->name, 'amount' => $x->amount_cents])->values()->all(),
+            'spends' => $spends->sortBy('id')->map(fn (ValeSpend $x) => ['id' => $x->id, 'name' => $x->name, 'amount' => $x->amount_cents, 'category' => $x->category?->name])->values()->all(),
         ];
     }
 
@@ -128,9 +128,9 @@ class MonthSummary
         // O vale: o valor entra como entrada e o gasto como saída no saldo; aqui mostra o restante e os gastos dentro.
         $vale = $summary['vale'];
         if ($withVale && ($vale['amount'] > 0 || $vale['spends'] !== [])) {
-            $rows->push(['source' => 'vale', 'id' => 0, 'name' => 'Vale', 'kind' => 'vale', 'paid' => false, 'owner_id' => null, 'recurring' => false,
+            $rows->push(['source' => 'vale', 'id' => 0, 'name' => 'Vale alimentação', 'kind' => 'vale', 'paid' => false, 'owner_id' => null, 'recurring' => false,
                 'sub' => 'Gastou '.Money::format($vale['spent']).' de '.Money::format($vale['amount']).($vale['spends'] === [] ? '' : ' · '.implode(', ', array_slice(array_column($vale['spends'], 'name'), 0, 2)).(count($vale['spends']) > 2 ? ' e mais '.(count($vale['spends']) - 2) : '')),
-                'signed' => $vale['remaining'], 'lines' => array_map(fn ($x) => ['id' => $x['id'], 'name' => $x['name'], 'amount' => $x['amount'], 'sub' => 'Gasto do vale'], $vale['spends']),
+                'signed' => $vale['remaining'], 'lines' => array_map(fn ($x) => ['id' => $x['id'], 'name' => $x['name'], 'amount' => $x['amount'], 'sub' => $x['category'] ?? 'Gasto do vale'], $vale['spends']),
                 'vale' => $vale]);
         }
 

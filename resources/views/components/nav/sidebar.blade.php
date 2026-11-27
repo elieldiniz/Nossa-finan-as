@@ -4,7 +4,7 @@
         ['statement', 'Extrato', 'list'],
         ['cards', 'Cartões', 'card'],
         ['people', 'Pessoas', 'people'],
-        ['vale', 'Vale', 'vale'],
+        ['vale', 'Vale alimentação', 'vale'],
         ['recurring', 'Recorrentes', 'repeat'],
         ['goals', 'Metas e investimentos', 'target'],
         ['charts', 'Gráficos', 'chart'],

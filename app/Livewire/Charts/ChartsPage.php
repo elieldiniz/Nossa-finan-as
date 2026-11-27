@@ -44,10 +44,12 @@ class ChartsPage extends Component
                 ->map(fn ($g) => (int) $g->sum('amount_cents'))->all())
             ->all();
 
-        $valeSpends = ValeSpend::query()->whereBetween('month', [$start->toDateString(), $end->toDateString()])->get()
-            ->filter(fn (ValeSpend $x) => $context->applies($x->owner_id))->groupBy(fn (ValeSpend $x) => $x->month->format('Y-m'));
-        foreach ($valeSpends as $key => $group) {
-            $byMonth[$key]['Vale'] = ($byMonth[$key]['Vale'] ?? 0) + (int) $group->sum('amount_cents');
+        $valeSpends = ValeSpend::query()->with('category')->whereBetween('month', [$start->toDateString(), $end->toDateString()])->get()
+            ->filter(fn (ValeSpend $x) => $context->applies($x->owner_id));
+        foreach ($valeSpends as $spend) { // o gasto do vale entra na categoria que a pessoa escolheu
+            $key = $spend->month->format('Y-m');
+            $name = $spend->category?->name ?? 'Vale alimentação';
+            $byMonth[$key][$name] = ($byMonth[$key][$name] ?? 0) + $spend->amount_cents;
         }
 
         return ReportCalculator::build($byMonth, $end->format('Y-m'), $this->period);

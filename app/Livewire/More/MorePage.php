@@ -13,7 +13,7 @@ class MorePage extends Component
     /** Os 8 itens de "Mais" (UI-03). */
     public const ITEMS = [
         ['people', 'Pessoas', 'people'],
-        ['vale', 'Vale', 'vale'],
+        ['vale', 'Vale alimentação', 'vale'],
         ['recurring', 'Recorrentes e assinaturas', 'repeat'],
         ['goals', 'Metas e investimentos', 'target'],
         ['report', 'Relatório', 'pie'],
