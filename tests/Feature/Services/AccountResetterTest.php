@@ -88,3 +88,16 @@ it('depois de apagar, o mês pode receber uma importação (excluídos não cont
     Entry::query()->delete(); // exclusão comum (suave), como a de "Excluir compras"
     expect($service->monthHasData(CarbonImmutable::parse('2026-09-01')))->toBeFalse()->and($service->monthEntryCount(CarbonImmutable::parse('2026-09-01')))->toBe(0);
 });
+
+it('apagar tudo não tira o cartão que o parceiro também usa', function () {
+    [$eliel, $ana] = makeCouple();
+    $compartilhado = makeCard($eliel, 'Cartão dos dois');
+    $so = makeCard($eliel, 'Só do Eliel');
+    makeEntry($ana, ['name' => 'Compra da Ana', 'card_id' => $compartilhado->id, 'month' => '2026-09-01']);
+    $this->actingAs($eliel);
+
+    expect(app(AccountResetter::class)->preview($eliel)['cards'])->toBe(1);
+    app(AccountResetter::class)->reset($eliel);
+
+    expect(Card::pluck('name')->all())->toBe(['Cartão dos dois'])->and(Entry::where('name', 'Compra da Ana')->first()->card_id)->toBe($compartilhado->id);
+});

@@ -25,7 +25,7 @@ class AccountResetter
         return [
             'entries' => Entry::withTrashed()->where('owner_id', $actor->id)->count(),
             'recurrences' => Recurrence::where('owner_id', $actor->id)->count(),
-            'cards' => Card::where('owner_id', $actor->id)->count(),
+            'cards' => Card::where('owner_id', $actor->id)->whereNotIn('id', Entry::where('owner_id', '!=', $actor->id)->whereNotNull('card_id')->pluck('card_id')->merge(Recurrence::where('owner_id', '!=', $actor->id)->whereNotNull('card_id')->pluck('card_id'))->unique())->count(),
             'debts' => PersonDebt::where('owner_id', $actor->id)->count(),
             'vale_spends' => ValeSpend::where('owner_id', $actor->id)->count(),
             'notifications' => $actor->notifications()->count(),
@@ -50,7 +50,9 @@ class AccountResetter
             ValeSpend::where('owner_id', $actor->id)->delete();
             Vale::where('owner_id', $actor->id)->delete();
 
-            Card::where('owner_id', $actor->id)->delete();
+            // cartões seus que o parceiro também usa ficam (apagá-los tiraria o cartão das compras dele)
+            $keep = Entry::where('owner_id', '!=', $actor->id)->whereNotNull('card_id')->pluck('card_id')->merge(Recurrence::where('owner_id', '!=', $actor->id)->whereNotNull('card_id')->pluck('card_id'))->unique();
+            Card::where('owner_id', $actor->id)->whereNotIn('id', $keep)->delete();
             $actor->notifications()->delete();
 
             return $counts;

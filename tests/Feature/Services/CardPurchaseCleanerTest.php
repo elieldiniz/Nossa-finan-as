@@ -178,7 +178,7 @@ it('excluir todos os cartões mantendo as compras: viram lançamentos sem cartã
 
     $r = cleaner()->deleteCards($eliel, false);
 
-    expect($r)->toBe(['cards' => 1, 'purchases' => 0])->and(Card::count())->toBe(0)
+    expect($r)->toBe(['cards' => 1, 'purchases' => 0, 'kept' => 0])->and(Card::count())->toBe(0)
         ->and(Entry::count())->toBe(3)->and(Entry::whereNotNull('card_id')->count())->toBe(0);
 });
 
@@ -191,14 +191,48 @@ it('excluir todos os cartões apagando as compras: some tudo do cartão e as sé
     Entry::where('recurrence_id', $primeira->recurrence_id)->update(['card_id' => $card->id]);
     Recurrence::whereKey($primeira->recurrence_id)->update(['card_id' => $card->id]);
     compras($eliel, $card, '2026-09', 2);
-    compras($ana, $card, '2026-09', 1);
 
     $r = cleaner()->deleteCards($eliel, true);
 
     expect($r['cards'])->toBe(1)->and($r['purchases'])->toBe(14)->and(Card::count())->toBe(0)
-        ->and(Entry::where('owner_id', $eliel->id)->count())->toBe(0)
-        ->and(Entry::where('owner_id', $ana->id)->count())->toBe(1);  // a do parceiro virou lançamento sem cartão
+        ->and(Entry::where('owner_id', $eliel->id)->count())->toBe(0);
 
     app(OpenMonthService::class)->openRange($eliel->couple_id, CarbonImmutable::parse('2026-09-01'), 12);
     expect(Entry::where('owner_id', $eliel->id)->count())->toBe(0); // a série parou
+});
+
+it('"Excluir todos os cartões" só mexe nos cartões que a pessoa criou: o cartão e as compras do parceiro ficam', function () {
+    [$eliel, $ana] = makeCouple();
+    $meu = makeCard($eliel, 'Nubank Eliel');
+    $dela = makeCard($ana, 'Nubank Ana');
+    compras($eliel, $meu, '2026-09', 2);
+    compras($ana, $dela, '2026-09', 3);
+    compras($eliel, $dela, '2026-09', 1);   // compra do Eliel no cartão da Ana
+    $this->actingAs($eliel);
+
+    foreach ([false, true] as $apagarCompras) {
+        $prev = cleaner()->previewCards($eliel);
+        expect(array_column($prev['deletable'], 'name'))->toBe(['Nubank Eliel'])->and($prev['others'])->toBe(1)->and($prev['blocked'])->toBe([]);
+    }
+
+    $r = cleaner()->deleteCards($eliel, true);
+
+    expect($r)->toBe(['cards' => 1, 'purchases' => 2, 'kept' => 0])
+        ->and(Card::pluck('name')->all())->toBe(['Nubank Ana'])                            // cartão da Ana fica
+        ->and(Entry::where('owner_id', $ana->id)->where('card_id', $dela->id)->count())->toBe(3) // compras da Ana continuam no cartão dela
+        ->and(Entry::where('owner_id', $eliel->id)->where('card_id', $dela->id)->count())->toBe(1); // a do Eliel no cartão da Ana não é tocada
+});
+
+it('cartão seu com compras do parceiro não é excluído e é avisado', function () {
+    [$eliel, $ana] = makeCouple();
+    $compartilhado = makeCard($eliel, 'Cartão que a Ana usa');
+    compras($ana, $compartilhado, '2026-09', 2);
+    $this->actingAs($eliel);
+
+    $prev = cleaner()->previewCards($eliel);
+    expect(array_column($prev['blocked'], 'name'))->toBe(['Cartão que a Ana usa'])->and($prev['deletable'])->toBe([]);
+
+    $r = cleaner()->deleteCards($eliel, true);
+
+    expect($r)->toBe(['cards' => 0, 'purchases' => 0, 'kept' => 1])->and(Card::count())->toBe(1)->and(Entry::where('owner_id', $ana->id)->where('card_id', $compartilhado->id)->count())->toBe(2);
 });

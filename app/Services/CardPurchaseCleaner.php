@@ -88,25 +88,56 @@ class CardPurchaseCleaner
     }
 
     /**
-     * Exclui os cartões do casal. Com $withPurchases, antes apaga as compras suas (e para as parceladas/fixas);
-     * sem isso, as compras ficam como lançamentos sem cartão (é o que o banco faz ao apagar um cartão).
+     * Quais cartões "Excluir todos os cartões" pode apagar: só os que a própria pessoa criou e que não têm compras
+     * ou regras do parceiro (senão o parceiro perderia dados). Os demais ficam e são listados.
      *
-     * @return array{cards: int, purchases: int}
+     * @return array{deletable: array<int, array{id: int, name: string}>, blocked: array<int, array{id: int, name: string}>, others: int, purchases: int}
+     */
+    public function previewCards(User $actor): array
+    {
+        $deletable = [];
+        $blocked = [];
+
+        foreach (Card::where('owner_id', $actor->id)->orderBy('name')->get() as $card) {
+            $partnerData = Entry::where('card_id', $card->id)->where('owner_id', '!=', $actor->id)->exists()
+                || Recurrence::where('card_id', $card->id)->where('owner_id', '!=', $actor->id)->exists();
+
+            $row = ['id' => $card->id, 'name' => $card->name];
+            $partnerData ? $blocked[] = $row : $deletable[] = $row;
+        }
+
+        return [
+            'deletable' => $deletable,
+            'blocked' => $blocked,
+            'others' => Card::where('owner_id', '!=', $actor->id)->count(), // cartões do parceiro: nunca são tocados
+            'purchases' => Entry::whereIn('card_id', array_column($deletable, 'id'))->where('owner_id', $actor->id)->count(),
+        ];
+    }
+
+    /**
+     * Exclui os cartões que a pessoa criou (ver previewCards). Com $withPurchases, antes apaga as compras dela nesses
+     * cartões (e para as parceladas/fixas); sem isso, as compras ficam como lançamentos sem cartão.
+     *
+     * @return array{cards: int, purchases: int, kept: int}
      */
     public function deleteCards(User $actor, bool $withPurchases): array
     {
         return DB::transaction(function () use ($actor, $withPurchases) {
-            $cards = Card::all();
-            foreach ($cards as $card) {
-                Gate::forUser($actor)->authorize('delete', $card);
-            }
+            $preview = $this->previewCards($actor);
+            $purchases = 0;
 
-            $purchases = $withPurchases ? $this->delete($actor, null, null, true)['deleted'] : 0;
-            foreach ($cards as $card) {
+            foreach ($preview['deletable'] as $row) {
+                $card = Card::findOrFail($row['id']);
+                Gate::forUser($actor)->authorize('delete', $card);
+
+                if ($withPurchases) {
+                    $purchases += $this->delete($actor, $card, null, true)['deleted'];
+                }
+
                 $card->delete();
             }
 
-            return ['cards' => $cards->count(), 'purchases' => $purchases];
+            return ['cards' => count($preview['deletable']), 'purchases' => $purchases, 'kept' => count($preview['blocked'])];
         });
     }
 

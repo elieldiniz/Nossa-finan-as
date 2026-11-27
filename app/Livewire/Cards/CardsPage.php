@@ -5,7 +5,6 @@ namespace App\Livewire\Cards;
 use App\Livewire\Concerns\WithMonthView;
 use App\Models\Card;
 use App\Models\CardInvoice;
-use App\Models\Entry;
 use App\Services\AccountResetter;
 use App\Services\CardPurchaseCleaner;
 use App\Services\MonthSummary;
@@ -122,8 +121,8 @@ class CardsPage extends Component
 
         $this->showDeleteCards = false;
         $this->undo = null;
-        $this->cleanDone = "{$result['cards']} cartões excluídos"
-            .($this->deleteMode === 'purge' ? " e {$result['purchases']} compras apagadas." : '. As compras ficaram como lançamentos sem cartão.');
+        $this->cleanDone = ($result['cards'] === 0 ? 'Nenhum cartão seu podia ser excluído.' : "{$result['cards']} cartões excluídos".($this->deleteMode === 'purge' ? " e {$result['purchases']} compras apagadas." : '. As compras ficaram como lançamentos sem cartão.'))
+            .($result['kept'] > 0 ? " {$result['kept']} cartões foram mantidos por terem compras do parceiro." : '');
     }
 
     // apagar tudo e recomeçar
@@ -239,8 +238,7 @@ class CardsPage extends Component
             'isFuture' => $this->monthDate()->greaterThan(now()->startOfMonth()),
             'resetPreview' => $this->showReset ? app(AccountResetter::class)->preview(auth()->user()) : null,
             'cleanRows' => $this->showCleanAll ? app(CardPurchaseCleaner::class)->previewByCard(auth()->user(), $this->cleanScope === 'all' ? null : $this->monthDate()) : [],
-            'allPurchases' => $this->showDeleteCards ? Entry::whereNotNull('card_id')->count() : 0,
-            'cardCount' => $this->showDeleteCards ? Card::count() : 0,
+            'cardsPreview' => $this->showDeleteCards ? app(CardPurchaseCleaner::class)->previewCards(auth()->user()) : null,
         ]);
     }
 }

@@ -143,3 +143,17 @@ it('apagar tudo não aparece na visão "Par" e só apaga o que é do próprio us
     Livewire::actingAs($ana)->test(CardsPage::class)->call('openReset')->set('resetPhrase', 'APAGAR TUDO')->set('resetPassword', 'x-senha')->call('resetAll');
     expect(Entry::where('name', 'Da Ana')->count())->toBe(0)->and(Entry::where('name', 'Do Eliel')->count())->toBe(1);
 });
+
+it('janela de excluir todos os cartões lista só os seus e avisa dos do parceiro; o cartão do parceiro não é excluído', function () {
+    [$eliel, $ana] = makeCouple();
+    makeCard($eliel, 'Nubank Eliel');
+    $dela = makeCard($ana, 'Nubank Ana');
+    makeEntry($ana, ['card_id' => $dela->id, 'name' => 'Da Ana']);
+
+    $tela = Livewire::actingAs($eliel)->test(CardsPage::class)->call('openDeleteCards')
+        ->assertSeeHtml('data-testid="delete-cards-summary"')->assertSee('Nubank Eliel')->assertSeeHtml('data-testid="delete-cards-kept"')->assertSee('1 cartão do parceiro não será');
+
+    $tela->set('confirmText', 'EXCLUIR')->call('deleteAllCards')->assertSee('1 cartões excluídos');
+
+    expect(Card::pluck('name')->all())->toBe(['Nubank Ana'])->and(Entry::where('name', 'Da Ana')->first()->card_id)->toBe($dela->id);
+});
