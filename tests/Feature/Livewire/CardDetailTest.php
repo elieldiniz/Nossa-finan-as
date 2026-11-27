@@ -129,3 +129,44 @@ it('com poucas compras a busca não aparece', function () {
 
     Livewire::actingAs($eliel)->test(CardDetail::class, ['card' => $card])->set('month', '2026-09')->assertDontSeeHtml('data-testid="card-search"');
 });
+
+it('janela de excluir compras: mostra contagem, valor e o aviso do parceiro; exclui do mês e dá para desfazer', function () {
+    [$eliel, $ana] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'A', 'amount_cents' => 1000]);
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'B', 'amount_cents' => 2000]);
+    makeEntry($ana, ['card_id' => $card->id, 'name' => 'C', 'amount_cents' => 500]);
+
+    $tela = Livewire::actingAs($eliel)->test(CardDetail::class, ['card' => $card])->set('month', '2026-09')
+        ->assertSeeHtml('data-testid="open-clean"')->assertDontSeeHtml('data-testid="clean-dialog"')
+        ->call('openClean')->assertSeeHtml('data-testid="clean-dialog"')->assertSeeHtml('data-testid="clean-count">2<')->assertSee('R$ 30,00')
+        ->assertSeeHtml('data-testid="clean-others"');
+
+    $tela->call('cleanAll')->assertSee('2 compras excluídas (R$ 30,00)')->assertSeeHtml('data-testid="clean-undo"')->assertDontSee('>A<', false);
+    expect(Entry::where('owner_id', $eliel->id)->count())->toBe(0)->and(Entry::where('owner_id', $ana->id)->count())->toBe(1);
+
+    $tela->call('undoClean')->assertSee('2 compras restauradas')->assertDontSeeHtml('data-testid="clean-undo"');
+    expect(Entry::where('owner_id', $eliel->id)->count())->toBe(2);
+});
+
+it('escolher "todos os meses" liga o "parar parceladas e fixas" e exclui de todos os meses', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($eliel, ['card_id' => $card->id, 'month' => '2026-09-01', 'amount_cents' => 1000]);
+    makeEntry($eliel, ['card_id' => $card->id, 'month' => '2026-10-01', 'amount_cents' => 1000]);
+
+    Livewire::actingAs($eliel)->test(CardDetail::class, ['card' => $card])->set('month', '2026-09')->call('openClean')
+        ->assertSet('stopSeries', false)->set('cleanScope', 'all')->assertSet('stopSeries', true)->assertSeeHtml('data-testid="clean-count">2<')
+        ->call('cleanAll');
+
+    expect(Entry::count())->toBe(0);
+});
+
+it('sem compras suas o botão de confirmar fica desativado; na visão "Par" o botão nem aparece', function () {
+    [$eliel, $ana] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($ana, ['card_id' => $card->id, 'name' => 'Da Ana']);
+
+    Livewire::actingAs($eliel)->test(CardDetail::class, ['card' => $card])->set('month', '2026-09')->call('openClean')->assertSeeHtml('data-testid="clean-count">0<')->assertSeeHtml('disabled');
+    Livewire::actingAs($eliel)->test(CardDetail::class, ['card' => $card])->set('month', '2026-09')->call('setView', 'par')->assertDontSeeHtml('data-testid="open-clean"');
+});

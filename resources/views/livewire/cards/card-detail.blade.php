@@ -18,6 +18,16 @@
         @endif
     </section>
 
+    @if ($cleanDone)
+        <div role="status" class="flex items-center justify-between gap-3 rounded-2xl bg-brand-soft px-4 py-3 text-sm font-semibold text-brand" data-testid="clean-done">
+            <span>{{ $cleanDone }}</span>
+            <span class="flex shrink-0 gap-2">
+                @if ($undo) <button type="button" wire:click="undoClean" class="nf-chip !min-h-9 !px-3 !text-xs" data-testid="clean-undo">Desfazer</button> @endif
+                <button type="button" wire:click="dismissClean" aria-label="Fechar aviso" class="text-base font-extrabold">✕</button>
+            </span>
+        </div>
+    @endif
+
     @if ($error) <p role="alert" class="rounded-2xl bg-neg-soft px-4 py-3 text-sm font-bold text-[#8E2F20]" data-testid="form-error">{{ $error }}</p> @endif
 
     @if ($allCount > 8)
@@ -60,6 +70,38 @@
             <button type="button" wire:click="toggleInvoice" class="nf-chip" data-testid="toggle-invoice">{{ $paid ? 'Fatura paga ✓' : 'Marcar fatura paga' }}</button>
         @endif
         <a href="{{ route('cards', ['editar' => $card->id]) }}" wire:navigate class="nf-chip" data-testid="edit-card">Editar cartão</a>
+        @if ($view !== 'par')
+            <button type="button" wire:click="openClean" class="nf-chip !text-neg" data-testid="open-clean">Excluir compras…</button>
+        @endif
         <button type="button" wire:click="removeCard" wire:confirm="Excluir este cartão?" class="nf-chip !text-neg" data-testid="remove-card">Excluir cartão</button>
     </div>
+
+    @if ($showClean && $clean)
+        <div class="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 p-3 sm:items-center" role="dialog" aria-modal="true" aria-label="Excluir compras do cartão" data-testid="clean-dialog" wire:key="clean-dialog">
+            <div class="w-full max-w-md rounded-3xl bg-white p-5 shadow-xl">
+                <h2 class="text-lg font-extrabold">Excluir compras do {{ $card->name }}</h2>
+                <fieldset class="mt-3 flex flex-col gap-1">
+                    <label class="flex min-h-11 items-center gap-2 rounded-2xl border-2 px-3 text-sm font-bold {{ $cleanScope === 'month' ? 'border-brand bg-brand-soft' : 'border-line' }}"><input type="radio" wire:model.live="cleanScope" value="month" class="size-4 accent-brand" /> Só de {{ $this->monthDate()->translatedFormat('F \d\e Y') }}</label>
+                    <label class="flex min-h-11 items-center gap-2 rounded-2xl border-2 px-3 text-sm font-bold {{ $cleanScope === 'all' ? 'border-brand bg-brand-soft' : 'border-line' }}"><input type="radio" wire:model.live="cleanScope" value="all" class="size-4 accent-brand" /> De todos os meses</label>
+                </fieldset>
+
+                <div class="mt-3 rounded-2xl bg-ground p-3 text-sm" data-testid="clean-summary">
+                    <p class="font-extrabold"><span data-testid="clean-count">{{ $clean['count'] }}</span> {{ $clean['count'] === 1 ? 'compra sua' : 'compras suas' }} · {{ Money::format($clean['total']) }}</p>
+                    @if ($clean['series'] > 0) <p class="mt-1 text-muted">{{ $clean['series'] }} {{ $clean['series'] === 1 ? 'é parcelada ou todo mês' : 'são parceladas ou todo mês' }}.</p> @endif
+                    @if ($clean['others'] > 0) <p class="mt-1 font-semibold text-[#6B4600]" data-testid="clean-others">{{ $clean['others'] }} {{ $clean['others'] === 1 ? 'compra' : 'compras' }} do parceiro não {{ $clean['others'] === 1 ? 'será apagada' : 'serão apagadas' }}: cada um exclui as suas.</p> @endif
+                </div>
+
+                @if ($clean['series'] > 0)
+                    <label class="mt-3 flex min-h-11 items-start gap-2 text-sm font-semibold"><input type="checkbox" wire:model="stopSeries" class="mt-0.5 size-5 shrink-0 accent-brand" data-testid="stop-series" /> <span>Parar também as parceladas e fixas daqui para frente <span class="block text-xs font-normal text-muted">Sem isso, a próxima parcela volta no mês seguinte.</span></span></label>
+                @endif
+
+                <p class="mt-3 text-xs text-muted">Você poderá desfazer logo depois. Outros cartões, vale, pessoas e contas sem cartão não são mexidos.</p>
+
+                <div class="mt-4 flex gap-3">
+                    <button type="button" wire:click="closeClean" class="nf-btn-ghost flex-1">Cancelar</button>
+                    <button type="button" wire:click="cleanAll" wire:loading.attr="disabled" @disabled($clean['count'] === 0) class="nf-btn flex-1 !bg-neg" data-testid="clean-confirm">Excluir {{ $clean['count'] }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
