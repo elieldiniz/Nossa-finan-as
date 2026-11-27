@@ -7,6 +7,7 @@ use App\Models\Entry;
 use App\Models\Goal;
 use App\Models\Recurrence;
 use App\Models\User;
+use App\Models\ValeSpend;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use InvalidArgumentException;
@@ -55,10 +56,11 @@ class CategoryService
         Gate::forUser($actor)->authorize('delete', $category);
 
         $inUse = Entry::withTrashed()->where('category_id', $category->id)->exists()
-            || Recurrence::where('category_id', $category->id)->exists();
+            || Recurrence::where('category_id', $category->id)->exists()
+            || ValeSpend::where('category_id', $category->id)->exists();
 
         if ($inUse && ($moveTo === null || $moveTo->id === $category->id)) {
-            throw new InvalidArgumentException('Esta categoria está em uso: escolha outra para receber os lançamentos.');
+            throw new InvalidArgumentException('Esta categoria está em uso (lançamentos, contas recorrentes ou gastos do vale alimentação): escolha outra para receber.');
         }
 
         if ($inUse && ! $moveTo->fitsKind($category->kind === Category::AMBAS ? Category::SAIDA : $category->kind)) {
@@ -69,6 +71,7 @@ class CategoryService
             if ($inUse) {
                 Entry::withTrashed()->where('category_id', $category->id)->update(['category_id' => $moveTo->id]);
                 Recurrence::where('category_id', $category->id)->update(['category_id' => $moveTo->id]);
+                ValeSpend::where('category_id', $category->id)->update(['category_id' => $moveTo->id]);
             }
             Goal::where('category_id', $category->id)->delete();
             $category->delete();

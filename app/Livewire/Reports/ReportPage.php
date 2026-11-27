@@ -5,6 +5,7 @@ namespace App\Livewire\Reports;
 use App\Domain\ReportCalculator;
 use App\Livewire\Concerns\WithMonthView;
 use App\Models\Entry;
+use App\Models\ValeSpend;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -23,10 +24,20 @@ class ReportPage extends Component
         $context = $this->context();
         $month = $this->monthDate();
 
-        $totals = fn ($date) => Entry::with('category')->where('kind', Entry::SAIDA)->where('month', $date->toDateString())->get()
-            ->filter(fn (Entry $e) => $context->applies($e->owner_id))
-            ->groupBy(fn (Entry $e) => $e->category?->name ?? 'Sem categoria')
-            ->map(fn ($g) => (int) $g->sum('amount_cents'));
+        $totals = function ($date) use ($context) {
+            $byName = Entry::with('category')->where('kind', Entry::SAIDA)->where('month', $date->toDateString())->get()
+                ->filter(fn (Entry $e) => $context->applies($e->owner_id))
+                ->groupBy(fn (Entry $e) => $e->category?->name ?? 'Sem categoria')
+                ->map(fn ($g) => (int) $g->sum('amount_cents'));
+
+            // o gasto do vale alimentação entra na categoria que a pessoa escolheu (sem categoria: "Vale alimentação")
+            foreach (ValeSpend::with('category')->where('month', $date->toDateString())->get()->filter(fn ($s) => $context->applies($s->owner_id)) as $spend) {
+                $name = $spend->category?->name ?? 'Vale alimentação';
+                $byName[$name] = ($byName[$name] ?? 0) + $spend->amount_cents;
+            }
+
+            return $byName;
+        };
 
         $current = $totals($month);
         $previous = $totals($month->subMonth());

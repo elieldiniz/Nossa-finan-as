@@ -39,6 +39,9 @@ class ValePage extends Component
     /** A pessoa já escolheu a categoria: a sugestão pelo nome não troca mais. */
     public bool $categoryTouched = false;
 
+    /** Gasto em edição (null = lançando um novo). */
+    public ?int $editingSpendId = null;
+
     /** Período do extrato a exportar: mes (o aberto) ou tudo. */
     public string $exportScope = 'mes';
 
@@ -86,7 +89,7 @@ class ValePage extends Component
         $this->error = null;
         $vale = Vale::where('owner_id', auth()->id())->first();
 
-        if ($vale === null) {
+        if ($vale === null && $this->editingSpendId === null) {
             $this->error = 'Defina primeiro o valor do seu vale.';
 
             return;
@@ -112,11 +115,40 @@ class ValePage extends Component
         $categoryId = $this->spendCategoryId ? Category::forKind('saida')->whereKey($this->spendCategoryId)->value('id') : null;
         Gate::authorize('create', ValeSpend::class);
 
+        if ($this->editingSpendId !== null) {
+            $existing = ValeSpend::findOrFail($this->editingSpendId);
+            Gate::authorize('update', $existing);
+            $existing->update(['name' => $this->spendName, 'category_id' => $categoryId, 'amount_cents' => $cents, 'spent_on' => $day?->toDateString()]);
+            $this->cancelEdit();
+
+            return;
+        }
+
         $spend = new ValeSpend(['vale_id' => $vale->id, 'owner_id' => auth()->id(), 'name' => $this->spendName, 'category_id' => $categoryId, 'amount_cents' => $cents, 'month' => $this->monthDate()->toDateString(), 'spent_on' => $day?->toDateString()]);
         $spend->couple_id = auth()->user()->couple_id;
         $spend->save();
 
         $this->reset('spendName', 'spendAmount', 'spendCategoryId', 'categoryTouched');
+    }
+
+    public function editSpend(int $id): void
+    {
+        $spend = ValeSpend::findOrFail($id);
+        Gate::authorize('update', $spend);
+
+        $this->editingSpendId = $spend->id;
+        $this->spendName = $spend->name;
+        $this->spendAmount = Money::format($spend->amount_cents);
+        $this->spendCategoryId = $spend->category_id;
+        $this->categoryTouched = true;
+        $this->spentOn = $spend->statementDate()->toDateString();
+        $this->error = null;
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->reset('editingSpendId', 'spendName', 'spendAmount', 'spendCategoryId', 'categoryTouched', 'spentOn');
+        $this->error = null;
     }
 
     public function removeSpend(int $id): void

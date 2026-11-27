@@ -1,11 +1,12 @@
 <div class="mx-auto flex max-w-2xl flex-col gap-4">
-    <header><h1 class="text-2xl font-extrabold">Categorias</h1><p class="text-sm text-muted">Valem para os dois. Para remover uma que já tem lançamentos, escolha outra para receber.</p></header>
+    <header><h1 class="text-2xl font-extrabold">Categorias</h1><p class="text-sm text-muted">Valem para os dois. Valem também para os gastos do vale alimentação. Para remover uma que já está em uso, escolha outra para receber.</p></header>
 
     <section class="nf-card px-5 py-2" aria-label="Lista de categorias">
         @foreach ($categories as $category)
             <div class="nf-row flex-wrap" wire:key="c-{{ $category->id }}" data-testid="category-{{ $category->id }}">
                 <input type="text" wire:model="names.{{ $category->id }}" aria-label="Nome da categoria" class="nf-input !min-h-10 min-w-32 flex-1" />
                 <span class="rounded-full px-3 py-1 text-xs font-bold {{ $category->kind === 'entrada' ? 'bg-pos-soft text-pos' : (in_array($category->kind, ['ambas', 'aporte']) ? 'bg-brand-soft text-brand' : 'bg-neg-soft text-[#8E2F20]') }}" data-testid="kind-{{ $category->id }}">{{ ['saida' => 'Saída', 'entrada' => 'Entrada', 'ambas' => 'Entrada e saída', 'aporte' => 'Investimento'][$category->kind] }}</span>
+                <span class="text-xs font-semibold text-muted" data-testid="usage-{{ $category->id }}">{{ $usage[$category->id]['entries'] ?? 0 }} {{ ($usage[$category->id]['entries'] ?? 0) === 1 ? 'lançamento' : 'lançamentos' }}@if (! empty($usage[$category->id]['vale'])) · {{ $usage[$category->id]['vale'] }} {{ $usage[$category->id]['vale'] === 1 ? 'gasto' : 'gastos' }} do vale alimentação @endif</span>
                 <button type="button" wire:click="rename({{ $category->id }})" class="nf-chip">Renomear</button>
                 <select wire:model="moveTo.{{ $category->id }}" aria-label="Mover lançamentos para" class="nf-input !min-h-10 !w-36"><option value="">Mover para…</option>@foreach ($categories as $other)@if ($other->id !== $category->id)<option value="{{ $other->id }}">{{ $other->name }}</option>@endif @endforeach</select>
                 <button type="button" wire:click="remove({{ $category->id }})" class="nf-chip !text-neg">Remover</button>

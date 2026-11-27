@@ -13,7 +13,7 @@
                 <div class="mt-3 rounded-2xl bg-white p-3 text-ink">
                     @forelse ($c['spends'] as $spend)
                         <div class="nf-row" wire:key="spend-{{ $spend->id }}"><span class="min-w-0 flex-1"><span class="block truncate text-sm font-bold">{{ $spend->name }}</span><span class="text-xs text-muted" data-testid="spend-meta">{{ $spend->statementDate()->format('d/m') }} · {{ $spend->category?->name ?? 'Sem categoria' }}</span></span><span class="text-sm font-extrabold">{{ Money::format($spend->amount_cents) }}</span>
-                            @if ($c['mine'] && ! $readOnly)<button type="button" wire:click="removeSpend({{ $spend->id }})" aria-label="Remover gasto {{ $spend->name }}" class="flex size-9 items-center justify-center rounded-full text-neg">✕</button>@endif</div>
+                            @if ($c['mine'] && ! $readOnly)<button type="button" wire:click="editSpend({{ $spend->id }})" aria-label="Editar gasto {{ $spend->name }}" data-testid="edit-spend" class="flex size-9 items-center justify-center rounded-full text-muted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="size-4" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" wire:click="removeSpend({{ $spend->id }})" aria-label="Remover gasto {{ $spend->name }}" class="flex size-9 items-center justify-center rounded-full text-neg">✕</button>@endif</div>
                     @empty
                         <p class="py-2 text-sm text-muted">Nenhum gasto neste mês ainda.</p>
                     @endforelse
@@ -31,14 +31,15 @@
         </form>
 
         <form wire:submit="addSpend" class="nf-card flex flex-col gap-3 p-5" aria-label="Novo gasto do vale alimentação">
-            <h2 class="text-base font-extrabold">Novo gasto do vale alimentação</h2>
+            <h2 class="text-base font-extrabold" data-testid="spend-form-title">{{ $editingSpendId ? 'Editar gasto do vale alimentação' : 'Novo gasto do vale alimentação' }}</h2>
             <div class="grid grid-cols-2 gap-3"><div><label for="sn" class="nf-label">Nome</label><input id="sn" type="text" wire:model="spendName" class="nf-input" /></div><div><label for="sa" class="nf-label">Valor</label><input id="sa" type="text" inputmode="decimal" wire:model="spendAmount" placeholder="R$ 0,00" class="nf-input" /></div></div>
             <div class="grid grid-cols-2 gap-3">
                 <div><label for="scat" class="nf-label">Categoria</label><select id="scat" wire:model.live="spendCategoryId" class="nf-input" data-testid="spend-category"><option value="">Sem categoria</option>@foreach ($categories as $cat)<option value="{{ $cat->id }}">{{ $cat->name }}</option>@endforeach</select></div>
                 <div><label for="sdate" class="nf-label">Data</label><input id="sdate" type="date" wire:model="spentOn" min="{{ $this->monthDate()->startOfMonth()->toDateString() }}" max="{{ $this->monthDate()->endOfMonth()->toDateString() }}" class="nf-input" data-testid="spend-date" /></div>
             </div>
             @if ($error) <p role="alert" class="text-sm font-bold text-neg" data-testid="form-error">{{ $error }}</p> @endif
-            <button type="submit" class="nf-btn">+ Novo gasto pessoal</button>
+            <button type="submit" class="nf-btn" data-testid="spend-submit">{{ $editingSpendId ? 'Salvar alterações' : '+ Novo gasto pessoal' }}</button>
+            @if ($editingSpendId) <button type="button" wire:click="cancelEdit" class="nf-btn-ghost" data-testid="spend-cancel">Cancelar edição</button> @endif
         </form>
     @endunless
 
