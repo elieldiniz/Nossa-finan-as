@@ -42,6 +42,12 @@ class RecurrenceScopeService
                 self::ALL => $this->updateAll($recurrence, $changes),
                 default => throw new InvalidArgumentException("Escopo desconhecido: {$scope}"),
             };
+
+            // vencimento e "pago" são deste mês: valem para o lançamento que está sendo editado em qualquer escopo
+            // (antes eram descartados em silêncio quando o escopo não era "Só este mês")
+            if ($scope !== self::THIS && $onlyThis !== []) {
+                $entry->update($onlyThis);
+            }
         });
     }
 

@@ -4,7 +4,9 @@ use App\Livewire\Entry\EditEntry;
 use App\Livewire\Home\HomePage;
 use App\Livewire\Statement\StatementPage;
 use App\Models\Entry;
+use App\Services\DueBills;
 use App\Services\OpenMonthService;
+use App\Support\ViewContext;
 use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 
@@ -155,4 +157,71 @@ it('há um caminho visível para editar: lápis no Extrato e nome da conta a ven
 
     Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-10')->assertSeeHtml('data-testid="edit-link"')->assertSeeHtml(route('entry.show', $e->id));
     Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-10')->assertSeeHtml('data-testid="bill-edit"');
+});
+
+it('recorrente: o vencimento editado é salvo em QUALQUER escopo (antes só valia em "Só este mês")', function () {
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel);
+    $this->travelTo(CarbonImmutable::parse('2026-11-27 10:00'));
+    $primeira = fixo($eliel, ['frequency' => 'monthly', 'charge_day' => 5], 118000, '2026-11-01');
+    $nov = Entry::where('recurrence_id', $primeira->recurrence_id)->where('month', '2026-11-01')->first();
+    $dez = Entry::where('recurrence_id', $primeira->recurrence_id)->where('month', '2026-12-01')->first();
+
+    foreach (['following', 'all', 'this'] as $escopo) {
+        $nov->update(['due_on' => '2026-10-05']); // data errada
+        Livewire::actingAs($eliel)->test(EditEntry::class, ['entry' => $nov->fresh()])->set('scope', $escopo)->set('confirmAll', true)->set('dueOn', '2026-12-10')->call('save')->assertHasNoErrors();
+
+        expect($nov->fresh()->due_on->toDateString())->toBe('2026-12-10', "escopo {$escopo}");
+    }
+
+    // os outros meses não mudam de data (para mudar o dia deles, é a "Regra da conta")
+    expect($dez->fresh()->due_on->toDateString())->toBe('2026-12-05');
+});
+
+it('a conta com vencimento corrigido para dezembro sai da lista de novembro como atrasada e aparece em dezembro, sem marcar como paga', function () {
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel);
+    $this->travelTo(CarbonImmutable::parse('2026-11-27 10:00'));
+    $primeira = fixo($eliel, ['frequency' => 'monthly', 'charge_day' => 4], 30000, '2026-11-01');
+    $nov = Entry::where('recurrence_id', $primeira->recurrence_id)->where('month', '2026-11-01')->first();
+    $contas = fn (string $mes) => collect(app(DueBills::class)->forMonth(CarbonImmutable::parse($mes.'-01'), ViewContext::for($eliel, 'nos'), CarbonImmutable::now()));
+
+    expect($contas('2026-11')->firstWhere('id', $nov->id)['overdue'])->toBeTrue(); // venceu 04/11 e está em aberto
+
+    Livewire::actingAs($eliel)->test(EditEntry::class, ['entry' => $nov->fresh()])->set('dueOn', '2026-12-10')->call('save');
+
+    expect($contas('2026-11')->firstWhere('id', $nov->id))->toBeNull()
+        ->and($contas('2026-12')->firstWhere('id', $nov->id))->toMatchArray(['due' => '2026-12-10', 'overdue' => false, 'paid' => false])
+        ->and($nov->fresh()->paid)->toBeFalse();
+});
+
+it('recorrente: "Já está pago" também vale para o lançamento editado em qualquer escopo, sem marcar os outros meses', function () {
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel);
+    $primeira = fixo($eliel, ['frequency' => 'monthly', 'charge_day' => 5], 30000, '2026-09-01');
+
+    Livewire::actingAs($eliel)->test(EditEntry::class, ['entry' => $primeira])->set('scope', 'following')->set('paid', true)->call('save');
+
+    expect(Entry::where('paid', true)->count())->toBe(1)->and($primeira->fresh()->paid)->toBeTrue();
+});
+
+it('mudar o dia de cobrança e o vencimento ao mesmo tempo: o vencimento digitado vale para este mês e o dia vale para os outros', function () {
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel);
+    $primeira = fixo($eliel, ['frequency' => 'monthly', 'charge_day' => 5], 30000, '2026-09-01');
+
+    Livewire::actingAs($eliel)->test(EditEntry::class, ['entry' => $primeira])->set('chargeDay', 20)->set('dueOn', '2026-09-28')->call('save');
+
+    $m = Entry::orderBy('month')->get();
+    expect($m[0]->due_on->toDateString())->toBe('2026-09-28')->and($m[1]->due_on->toDateString())->toBe('2026-10-20');
+});
+
+it('o aviso de que o vencimento vale só para este mês aparece nas contas recorrentes e não nas avulsas', function () {
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel);
+    $rec = fixo($eliel, ['frequency' => 'monthly', 'charge_day' => 5], 30000, '2026-09-01');
+    $avulsa = makeEntry($eliel, ['name' => 'Avulsa']);
+
+    Livewire::actingAs($eliel)->test(EditEntry::class, ['entry' => $rec])->assertSeeHtml('data-testid="due-hint"')->assertSee('Cobra no dia');
+    Livewire::actingAs($eliel)->test(EditEntry::class, ['entry' => $avulsa])->assertDontSeeHtml('data-testid="due-hint"');
 });

@@ -24,7 +24,7 @@
 
             <div class="grid grid-cols-2 gap-3">
                 @if ($entry->kind === 'saida')
-                    <div><label for="due" class="nf-label">Vence em</label><input id="due" type="date" wire:model="dueOn" class="nf-input" data-testid="due-input" />@error('dueOn') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror</div>
+                    <div><label for="due" class="nf-label">Vence em</label>@if ($entry->recurrence_id)<p class="mb-1 text-xs text-muted" data-testid="due-hint">Vale só para este mês. Para mudar o dia dos próximos meses, use “Cobra no dia” em Regra da conta.</p>@endif<input id="due" type="date" wire:model="dueOn" class="nf-input" data-testid="due-input" />@error('dueOn') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror</div>
                 @endif
                 @unless ($entry->recurrence_id)
                     <div><label for="month" class="nf-label">Mês</label><input id="month" type="month" wire:model="month" class="nf-input" data-testid="month-input" />@error('month') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror</div>

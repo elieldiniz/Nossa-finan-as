@@ -38,6 +38,9 @@ class EditEntry extends Component
 
     public ?string $dueOn = null;
 
+    /** Vencimento que o lançamento tinha ao abrir a tela (para saber se a pessoa o mudou). */
+    public ?string $originalDue = null;
+
     public bool $paid = false;
 
     /** Mês do lançamento (Y-m): só muda em lançamentos que não são recorrentes. */
@@ -64,6 +67,7 @@ class EditEntry extends Component
         $this->categoryId = $entry->category_id;
         $this->cardId = $entry->card_id;
         $this->dueOn = $entry->due_on?->toDateString();
+        $this->originalDue = $this->dueOn;
         $this->paid = (bool) $entry->paid;
         $this->month = $entry->month->format('Y-m');
 
@@ -122,6 +126,11 @@ class EditEntry extends Component
                     'charge_day' => $this->chargeDay,
                     'installments_total' => $this->installmentsTotal,
                 ], fn ($v) => $v !== null) + ['ends_on' => $this->isInstallment() || $this->endMode !== 'date' ? null : $this->endsOn]);
+
+                // o vencimento que a pessoa digitou para este mês vale mesmo se o dia de cobrança da regra mudou junto
+                if ($this->entry->kind === Entry::SAIDA && ($this->dueOn ?: null) !== $this->originalDue) {
+                    $this->entry->refresh()->update(['due_on' => $this->dueOn ?: null]);
+                }
             } else {
                 $entries->update(auth()->user(), $this->entry, $changes + $single + ['month' => $this->month.'-01']);
             }
