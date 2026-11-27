@@ -25,14 +25,14 @@ class ImportService
     /** Quantos lançamentos o mês já tem (para avisar antes de importar por cima). */
     public function monthEntryCount(CarbonImmutable $month): int
     {
-        return Entry::withTrashed()->where('month', $month->startOfMonth()->toDateString())->count();
+        return Entry::where('month', $month->startOfMonth()->toDateString())->count(); // excluídos não contam
     }
 
     public function monthHasData(CarbonImmutable $month): bool
     {
         $date = $month->startOfMonth()->toDateString();
 
-        return Entry::withTrashed()->where('month', $date)->exists()
+        return Entry::where('month', $date)->exists()
             || ValeSpend::where('month', $date)->exists()
             || PersonDebt::where('created_month', $date)->exists();
     }
@@ -70,7 +70,7 @@ class ImportService
             // ao importar por cima de um mês com dados: o que já existe igual (tipo, nome e valor) é pulado
             $seen = [];
             if ($merge) {
-                foreach (Entry::withTrashed()->where('month', $month->toDateString())->get() as $existing) {
+                foreach (Entry::where('month', $month->toDateString())->get() as $existing) {
                     $seen[$this->dupKey($existing->kind, $existing->name, $existing->amount_cents, $existing->card_id)] = true;
                 }
             }

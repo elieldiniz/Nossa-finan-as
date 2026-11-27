@@ -6,10 +6,12 @@ use App\Livewire\Concerns\WithMonthView;
 use App\Models\Card;
 use App\Models\CardInvoice;
 use App\Models\Entry;
+use App\Services\AccountResetter;
 use App\Services\CardPurchaseCleaner;
 use App\Services\MonthSummary;
 use App\Support\Money;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -124,8 +126,52 @@ class CardsPage extends Component
             .($this->deleteMode === 'purge' ? " e {$result['purchases']} compras apagadas." : '. As compras ficaram como lançamentos sem cartão.');
     }
 
+    // apagar tudo e recomeçar
+    public bool $showReset = false;
+
+    public string $resetPhrase = '';
+
+    public string $resetPassword = '';
+
+    public function openReset(): void
+    {
+        $this->showReset = true;
+        $this->showCleanAll = false;
+        $this->showDeleteCards = false;
+        $this->resetPhrase = '';
+        $this->resetPassword = '';
+        $this->cleanDone = null;
+        $this->resetErrorBag();
+    }
+
+    public function resetAll(AccountResetter $resetter): void
+    {
+        Gate::authorize('create', Card::class);
+        $this->resetErrorBag();
+
+        if (mb_strtoupper(trim($this->resetPhrase)) !== 'APAGAR TUDO') {
+            $this->addError('resetPhrase', 'Digite APAGAR TUDO para confirmar.');
+
+            return;
+        }
+
+        if (! Hash::check($this->resetPassword, auth()->user()->password)) {
+            $this->addError('resetPassword', 'Senha incorreta.');
+
+            return;
+        }
+
+        $c = $resetter->reset(auth()->user());
+
+        $this->showReset = false;
+        $this->undo = null;
+        $this->resetPhrase = $this->resetPassword = '';
+        $this->cleanDone = "Tudo o que você cadastrou foi apagado: {$c['entries']} lançamentos, {$c['recurrences']} contas recorrentes ou parceladas, {$c['cards']} cartões, {$c['debts']} pendências de pessoas e {$c['vale_spends']} gastos do vale. Pode começar de novo.";
+    }
+
     public function closeDialogs(): void
     {
+        $this->showReset = false;
         $this->showCleanAll = false;
         $this->showDeleteCards = false;
         $this->resetErrorBag();
@@ -191,6 +237,7 @@ class CardsPage extends Component
         return view('livewire.cards.cards-page', [
             'summary' => app(MonthSummary::class)->build(auth()->user(), $this->monthDate(), $this->view),
             'isFuture' => $this->monthDate()->greaterThan(now()->startOfMonth()),
+            'resetPreview' => $this->showReset ? app(AccountResetter::class)->preview(auth()->user()) : null,
             'cleanRows' => $this->showCleanAll ? app(CardPurchaseCleaner::class)->previewByCard(auth()->user(), $this->cleanScope === 'all' ? null : $this->monthDate()) : [],
             'allPurchases' => $this->showDeleteCards ? Entry::whereNotNull('card_id')->count() : 0,
             'cardCount' => $this->showDeleteCards ? Card::count() : 0,

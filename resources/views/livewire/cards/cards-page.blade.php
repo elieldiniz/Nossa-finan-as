@@ -48,13 +48,16 @@
         </div>
     @endif
 
-    @if ($view !== 'par' && count($summary['cards']) > 0)
+    @if ($view !== 'par')
         <section class="nf-card p-5" aria-label="Limpeza em massa" data-testid="bulk">
             <h2 class="text-base font-extrabold">Limpeza em massa</h2>
             <p class="mt-1 text-sm text-muted">Para recomeçar ou corrigir uma importação errada. Só as compras que você lançou são apagadas.</p>
             <div class="mt-3 flex flex-wrap gap-2">
+                @if (count($summary['cards']) > 0)
                 <button type="button" wire:click="openCleanAll" class="nf-chip !text-neg" data-testid="open-clean-all">Excluir todas as faturas…</button>
                 <button type="button" wire:click="openDeleteCards" class="nf-chip !text-neg" data-testid="open-delete-cards">Excluir todos os cartões…</button>
+                @endif
+                <button type="button" wire:click="openReset" class="nf-chip !border-neg !bg-neg-soft !text-[#8E2F20]" data-testid="open-reset">Apagar tudo e recomeçar…</button>
             </div>
         </section>
     @endif
@@ -97,6 +100,30 @@
                 <div class="mt-4 flex gap-3">
                     <button type="button" wire:click="closeDialogs" class="nf-btn-ghost flex-1">Cancelar</button>
                     <button type="button" wire:click="deleteAllCards" wire:loading.attr="disabled" class="nf-btn flex-1 !bg-neg" data-testid="delete-cards-confirm">Excluir cartões</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if ($showReset && $resetPreview)
+        <div class="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 p-3 sm:items-center" role="dialog" aria-modal="true" aria-label="Apagar tudo e recomeçar" data-testid="reset-dialog" wire:key="reset-dialog">
+            <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-5 shadow-xl">
+                <h2 class="text-lg font-extrabold text-neg">Apagar tudo e recomeçar</h2>
+                <p class="mt-1 text-sm text-muted">Apaga <b>tudo o que você cadastrou</b>, para o app ficar limpo.</p>
+                <ul class="mt-3 rounded-2xl bg-ground p-3 text-sm font-semibold" data-testid="reset-summary">
+                    <li class="flex justify-between"><span>Lançamentos (extrato)</span><span data-testid="reset-entries">{{ $resetPreview['entries'] }}</span></li>
+                    <li class="flex justify-between"><span>Contas recorrentes e parceladas</span><span>{{ $resetPreview['recurrences'] }}</span></li>
+                    <li class="flex justify-between"><span>Cartões</span><span>{{ $resetPreview['cards'] }}</span></li>
+                    <li class="flex justify-between"><span>Pendências com pessoas</span><span>{{ $resetPreview['debts'] }}</span></li>
+                    <li class="flex justify-between"><span>Gastos do vale</span><span>{{ $resetPreview['vale_spends'] }}</span></li>
+                </ul>
+                <p class="mt-3 text-xs text-muted">Não mexe no que o parceiro cadastrou, na sua conta, nas categorias nem nas metas. Os lançamentos do parceiro em cartões seus ficam como lançamentos sem cartão.</p>
+                <p class="mt-2 rounded-2xl bg-neg-soft px-3 py-2 text-sm font-semibold text-[#8E2F20]">Isso <b>não dá para desfazer</b>.</p>
+                <div class="mt-3"><label for="reset-phrase" class="nf-label">Digite APAGAR TUDO para confirmar</label><input id="reset-phrase" type="text" wire:model="resetPhrase" autocomplete="off" class="nf-input" data-testid="reset-phrase" />@error('resetPhrase') <p class="mt-1 text-sm font-bold text-neg" data-testid="reset-phrase-error">{{ $message }}</p> @enderror</div>
+                <div class="mt-3"><label for="reset-password" class="nf-label">Sua senha</label><input id="reset-password" type="password" wire:model="resetPassword" autocomplete="current-password" class="nf-input" data-testid="reset-password" />@error('resetPassword') <p class="mt-1 text-sm font-bold text-neg" data-testid="reset-password-error">{{ $message }}</p> @enderror</div>
+                <div class="mt-4 flex gap-3">
+                    <button type="button" wire:click="closeDialogs" class="nf-btn-ghost flex-1">Cancelar</button>
+                    <button type="button" wire:click="resetAll" wire:loading.attr="disabled" class="nf-btn flex-1 !bg-neg" data-testid="reset-confirm">Apagar tudo</button>
                 </div>
             </div>
         </div>

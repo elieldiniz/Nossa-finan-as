@@ -73,9 +73,9 @@ it('Limpeza em massa: aparece embaixo; "Excluir todas as faturas" mostra o resum
     expect(Entry::count())->toBe(2);
 });
 
-it('"todos os meses" liga o parar parceladas; sem cartões a seção de limpeza não aparece', function () {
+it('"todos os meses" liga o parar parceladas; sem cartões só o "apagar tudo" aparece na limpeza', function () {
     [$eliel] = makeCouple();
-    Livewire::actingAs($eliel)->test(CardsPage::class)->assertDontSeeHtml('data-testid="bulk"');
+    Livewire::actingAs($eliel)->test(CardsPage::class)->assertSeeHtml('data-testid="open-reset"')->assertDontSeeHtml('data-testid="open-clean-all"')->assertDontSeeHtml('data-testid="open-delete-cards"');
 
     makeCard($eliel, 'Nubank');
     Livewire::actingAs($eliel)->test(CardsPage::class)->call('openCleanAll')->assertSet('stopSeries', false)->set('cleanScope', 'all')->assertSet('stopSeries', true);
@@ -111,4 +111,35 @@ it('na visão "Par" a limpeza em massa não aparece', function () {
     makeCard($eliel, 'Nubank');
 
     Livewire::actingAs($eliel)->test(CardsPage::class)->call('setView', 'par')->assertDontSeeHtml('data-testid="bulk"');
+});
+
+it('Apagar tudo e recomeçar: mostra o resumo, exige a frase e a senha e apaga tudo do usuário', function () {
+    [$eliel] = makeCouple();
+    $eliel->forceFill(['password' => bcrypt('senha-certa')])->save();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'A']);
+    makeEntry($eliel, ['name' => 'B']);
+
+    $tela = Livewire::actingAs($eliel)->test(CardsPage::class)->call('openReset')->assertSeeHtml('data-testid="reset-dialog"')->assertSeeHtml('data-testid="reset-entries">2<')->assertSee('não dá para desfazer');
+
+    $tela->set('resetPhrase', 'apagar')->set('resetPassword', 'senha-certa')->call('resetAll')->assertSeeHtml('data-testid="reset-phrase-error"');
+    expect(Entry::count())->toBe(2);
+
+    $tela->set('resetPhrase', 'apagar tudo')->set('resetPassword', 'errada')->call('resetAll')->assertSeeHtml('data-testid="reset-password-error"');
+    expect(Entry::count())->toBe(2)->and(Card::count())->toBe(1);
+
+    $tela->set('resetPassword', 'senha-certa')->call('resetAll')->assertSee('Tudo o que você cadastrou foi apagado')->assertDontSeeHtml('data-testid="reset-dialog"');
+    expect(Entry::withTrashed()->count())->toBe(0)->and(Card::count())->toBe(0);
+});
+
+it('apagar tudo não aparece na visão "Par" e só apaga o que é do próprio usuário', function () {
+    [$eliel, $ana] = makeCouple();
+    $ana->forceFill(['password' => bcrypt('x-senha')])->save();
+    makeEntry($eliel, ['name' => 'Do Eliel']);
+    makeEntry($ana, ['name' => 'Da Ana']);
+
+    Livewire::actingAs($ana)->test(CardsPage::class)->call('setView', 'par')->assertDontSeeHtml('data-testid="open-reset"');
+
+    Livewire::actingAs($ana)->test(CardsPage::class)->call('openReset')->set('resetPhrase', 'APAGAR TUDO')->set('resetPassword', 'x-senha')->call('resetAll');
+    expect(Entry::where('name', 'Da Ana')->count())->toBe(0)->and(Entry::where('name', 'Do Eliel')->count())->toBe(1);
 });
