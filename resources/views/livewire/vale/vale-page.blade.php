@@ -43,6 +43,14 @@
         </form>
     @endunless
 
+    @unless ($readOnly)
+        <section class="nf-card p-5" aria-label="Importar extrato" data-testid="import">
+            <h2 class="text-base font-extrabold">Importar extrato</h2>
+            <p class="mt-1 text-sm text-muted">Traga os gastos do extrato do seu cartão de vale (arquivo OFX ou PDF) para o vale alimentação.</p>
+            <a href="{{ route('vale.import') }}" wire:navigate class="nf-btn mt-3 !min-h-11 !px-5 !text-sm" data-testid="import-link">Importar extrato (.ofx ou .pdf)</a>
+        </section>
+    @endunless
+
     <section class="nf-card p-5" aria-label="Exportar extrato" data-testid="export">
         <h2 class="text-base font-extrabold">Exportar extrato</h2>
         <p class="mt-1 text-sm text-muted">Baixe o extrato do vale alimentação em PDF (para ler ou imprimir) ou OFX (para outros programas).</p>

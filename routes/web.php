@@ -32,6 +32,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('cartoes/{card}', CardDetail::class)->name('cards.show');
     Route::get('pessoas', PeoplePage::class)->name('people');
     Route::get('vale', ValePage::class)->name('vale');
+    Route::get('vale/importar', App\Livewire\Vale\ImportPage::class)->name('vale.import');
     Route::get('vale/exportar/{format}', ValeExportController::class)->whereIn('format', ['pdf', 'ofx'])->name('vale.export');
     Route::get('recorrentes', RecurringPage::class)->name('recurring');
     Route::get('metas', GoalsPage::class)->name('goals');

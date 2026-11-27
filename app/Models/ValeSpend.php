@@ -13,7 +13,7 @@ class ValeSpend extends Model
 
     protected $table = 'vale_spends';
 
-    protected $fillable = ['vale_id', 'owner_id', 'name', 'category_id', 'amount_cents', 'month', 'spent_on'];
+    protected $fillable = ['vale_id', 'owner_id', 'name', 'category_id', 'amount_cents', 'month', 'spent_on', 'external_id'];
 
     public function category(): BelongsTo
     {
