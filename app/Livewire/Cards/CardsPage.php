@@ -5,6 +5,8 @@ namespace App\Livewire\Cards;
 use App\Livewire\Concerns\WithMonthView;
 use App\Models\Card;
 use App\Models\CardInvoice;
+use App\Models\Entry;
+use App\Services\CardPurchaseCleaner;
 use App\Services\MonthSummary;
 use App\Support\Money;
 use Illuminate\Support\Facades\Gate;
@@ -38,6 +40,101 @@ class CardsPage extends Component
         if ($this->editingId) {
             $this->edit($this->editingId);
         }
+    }
+
+    // limpeza em massa (parte de baixo da tela)
+    public bool $showCleanAll = false;
+
+    public string $cleanScope = 'month'; // month | all
+
+    public bool $stopSeries = false;
+
+    public bool $showDeleteCards = false;
+
+    public string $deleteMode = 'keep'; // keep = manter as compras soltas | purge = apagar as compras também
+
+    public string $confirmText = '';
+
+    /** O que foi excluído por último (para o Desfazer). @var array<string, mixed>|null */
+    public ?array $undo = null;
+
+    public ?string $cleanDone = null;
+
+    public function openCleanAll(): void
+    {
+        $this->showCleanAll = true;
+        $this->showDeleteCards = false;
+        $this->cleanScope = 'month';
+        $this->stopSeries = false;
+        $this->cleanDone = null;
+    }
+
+    public function updatedCleanScope(): void
+    {
+        $this->stopSeries = $this->cleanScope === 'all'; // "todos os meses": as parceladas e fixas devem parar também
+    }
+
+    public function cleanAll(CardPurchaseCleaner $cleaner): void
+    {
+        Gate::authorize('create', Card::class);
+        $result = $cleaner->delete(auth()->user(), null, $this->cleanScope === 'all' ? null : $this->monthDate(), $this->stopSeries);
+
+        $this->undo = $result['undo'];
+        $this->showCleanAll = false;
+        $this->cleanDone = $result['deleted'] === 0
+            ? 'Não havia compras suas para excluir.'
+            : "{$result['deleted']} compras excluídas de todos os cartões (".Money::format($result['total']).').';
+    }
+
+    public function undoClean(CardPurchaseCleaner $cleaner): void
+    {
+        if ($this->undo === null) {
+            return;
+        }
+
+        $n = $cleaner->undo(auth()->user(), $this->undo);
+        $this->undo = null;
+        $this->cleanDone = "{$n} compras restauradas.";
+    }
+
+    public function openDeleteCards(): void
+    {
+        $this->showDeleteCards = true;
+        $this->showCleanAll = false;
+        $this->deleteMode = 'keep';
+        $this->confirmText = '';
+        $this->cleanDone = null;
+    }
+
+    public function deleteAllCards(CardPurchaseCleaner $cleaner): void
+    {
+        Gate::authorize('create', Card::class);
+
+        if (mb_strtoupper(trim($this->confirmText)) !== 'EXCLUIR') {
+            $this->addError('confirmText', 'Digite EXCLUIR para confirmar.');
+
+            return;
+        }
+
+        $result = $cleaner->deleteCards(auth()->user(), $this->deleteMode === 'purge');
+
+        $this->showDeleteCards = false;
+        $this->undo = null;
+        $this->cleanDone = "{$result['cards']} cartões excluídos"
+            .($this->deleteMode === 'purge' ? " e {$result['purchases']} compras apagadas." : '. As compras ficaram como lançamentos sem cartão.');
+    }
+
+    public function closeDialogs(): void
+    {
+        $this->showCleanAll = false;
+        $this->showDeleteCards = false;
+        $this->resetErrorBag();
+    }
+
+    public function dismissClean(): void
+    {
+        $this->undo = null;
+        $this->cleanDone = null;
     }
 
     public function addCard(): void
@@ -94,6 +191,9 @@ class CardsPage extends Component
         return view('livewire.cards.cards-page', [
             'summary' => app(MonthSummary::class)->build(auth()->user(), $this->monthDate(), $this->view),
             'isFuture' => $this->monthDate()->greaterThan(now()->startOfMonth()),
+            'cleanRows' => $this->showCleanAll ? app(CardPurchaseCleaner::class)->previewByCard(auth()->user(), $this->cleanScope === 'all' ? null : $this->monthDate()) : [],
+            'allPurchases' => $this->showDeleteCards ? Entry::whereNotNull('card_id')->count() : 0,
+            'cardCount' => $this->showDeleteCards ? Card::count() : 0,
         ]);
     }
 }

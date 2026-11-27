@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Gate;
 class CardPurchaseCleaner
 {
     /** @return array{count: int, total: int, series: int, others: int} */
-    public function preview(User $actor, Card $card, ?CarbonImmutable $month): array
+    public function preview(User $actor, ?Card $card, ?CarbonImmutable $month): array
     {
         $mine = $this->mine($actor, $card, $month)->get(['amount_cents', 'recurrence_id']);
 
@@ -37,9 +37,11 @@ class CardPurchaseCleaner
     /**
      * @return array{deleted: int, total: int, undo: array{entries: array<int, int>, recurrences: array<int, ?string>}}
      */
-    public function delete(User $actor, Card $card, ?CarbonImmutable $month, bool $stopSeries): array
+    public function delete(User $actor, ?Card $card, ?CarbonImmutable $month, bool $stopSeries): array
     {
-        Gate::forUser($actor)->authorize('update', $card);
+        if ($card !== null) {
+            Gate::forUser($actor)->authorize('update', $card);
+        }
 
         return DB::transaction(function () use ($actor, $card, $month, $stopSeries) {
             $targets = $this->mine($actor, $card, $month)->get();
@@ -68,6 +70,46 @@ class CardPurchaseCleaner
         });
     }
 
+    /**
+     * Resumo por cartão (todos os cartões do casal), para a janela de exclusão geral.
+     *
+     * @return array<int, array{id: int, name: string, count: int, total: int}>
+     */
+    public function previewByCard(User $actor, ?CarbonImmutable $month): array
+    {
+        $rows = [];
+
+        foreach (Card::orderBy('name')->get() as $card) {
+            $p = $this->preview($actor, $card, $month);
+            $rows[] = ['id' => $card->id, 'name' => $card->name, 'count' => $p['count'], 'total' => $p['total']];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Exclui os cartões do casal. Com $withPurchases, antes apaga as compras suas (e para as parceladas/fixas);
+     * sem isso, as compras ficam como lançamentos sem cartão (é o que o banco faz ao apagar um cartão).
+     *
+     * @return array{cards: int, purchases: int}
+     */
+    public function deleteCards(User $actor, bool $withPurchases): array
+    {
+        return DB::transaction(function () use ($actor, $withPurchases) {
+            $cards = Card::all();
+            foreach ($cards as $card) {
+                Gate::forUser($actor)->authorize('delete', $card);
+            }
+
+            $purchases = $withPurchases ? $this->delete($actor, null, null, true)['deleted'] : 0;
+            foreach ($cards as $card) {
+                $card->delete();
+            }
+
+            return ['cards' => $cards->count(), 'purchases' => $purchases];
+        });
+    }
+
     /** Restaura o que foi excluído (e a data final das regras). Devolve quantas compras voltaram. */
     public function undo(User $actor, array $undo): int
     {
@@ -81,13 +123,13 @@ class CardPurchaseCleaner
     }
 
     /** Todas as compras do cartão no escopo (mês ou todos os meses), de qualquer dono. */
-    private function scope(Card $card, ?CarbonImmutable $month): Builder
+    private function scope(?Card $card, ?CarbonImmutable $month): Builder
     {
-        return Entry::query()->where('card_id', $card->id)->where('kind', Entry::SAIDA)
+        return Entry::query()->when($card, fn (Builder $q) => $q->where('card_id', $card->id), fn (Builder $q) => $q->whereNotNull('card_id'))->where('kind', Entry::SAIDA)
             ->when($month, fn (Builder $q) => $q->where('month', $month->startOfMonth()->toDateString()));
     }
 
-    private function mine(User $actor, Card $card, ?CarbonImmutable $month): Builder
+    private function mine(User $actor, ?Card $card, ?CarbonImmutable $month): Builder
     {
         return $this->scope($card, $month)->where('owner_id', $actor->id);
     }

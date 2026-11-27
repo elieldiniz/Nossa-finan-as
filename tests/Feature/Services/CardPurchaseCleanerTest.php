@@ -144,3 +144,61 @@ it('cartão de outro casal não é acessível (ninguém apaga o que não é do c
     expect(fn () => cleaner()->delete($eliel, $alheio, null, false))->toThrow(AuthorizationException::class);
     expect(Entry::withoutGlobalScopes()->count())->toBe(2);
 });
+
+it('todos os cartões: prévia por cartão e exclusão de todos de uma vez (mês ou todos os meses)', function () {
+    [$eliel, $ana] = makeCouple();
+    $nubank = makeCard($eliel, 'Nubank');
+    $ouro = makeCard($eliel, 'Ourocard');
+    compras($eliel, $nubank, '2026-09', 3);
+    compras($eliel, $ouro, '2026-09', 2, 500);
+    compras($eliel, $ouro, '2026-10', 4, 500);
+    compras($ana, $nubank, '2026-09', 5);
+    makeEntry($eliel, ['name' => 'Sem cartão', 'month' => '2026-09-01']);
+    $this->actingAs($eliel);
+
+    $setembro = CarbonImmutable::parse('2026-09-01');
+    expect(cleaner()->previewByCard($eliel, $setembro))->toBe([
+        ['id' => $nubank->id, 'name' => 'Nubank', 'count' => 3, 'total' => 3000],
+        ['id' => $ouro->id, 'name' => 'Ourocard', 'count' => 2, 'total' => 1000],
+    ]);
+
+    expect(cleaner()->delete($eliel, null, $setembro, false)['deleted'])->toBe(5)
+        ->and(Entry::where('owner_id', $eliel->id)->whereNotNull('card_id')->count())->toBe(4)   // outubro do Ourocard fica
+        ->and(Entry::where('owner_id', $ana->id)->count())->toBe(5)                              // do parceiro fica
+        ->and(Entry::where('name', 'Sem cartão')->count())->toBe(1);
+
+    expect(cleaner()->delete($eliel, null, null, false)['deleted'])->toBe(4)->and(Entry::whereNotNull('card_id')->where('owner_id', $eliel->id)->count())->toBe(0);
+});
+
+it('excluir todos os cartões mantendo as compras: viram lançamentos sem cartão (nada some)', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    compras($eliel, $card, '2026-09', 3);
+    $this->actingAs($eliel);
+
+    $r = cleaner()->deleteCards($eliel, false);
+
+    expect($r)->toBe(['cards' => 1, 'purchases' => 0])->and(Card::count())->toBe(0)
+        ->and(Entry::count())->toBe(3)->and(Entry::whereNotNull('card_id')->count())->toBe(0);
+});
+
+it('excluir todos os cartões apagando as compras: some tudo do cartão e as séries param', function () {
+    [$eliel, $ana] = makeCouple();
+    $this->actingAs($eliel);
+    $this->travelTo(CarbonImmutable::parse('2026-09-15 10:00'));
+    $card = makeCard($eliel, 'Nubank');
+    $primeira = fixo($eliel, ['frequency' => 'monthly', 'charge_day' => 5], 3000, '2026-09-01');
+    Entry::where('recurrence_id', $primeira->recurrence_id)->update(['card_id' => $card->id]);
+    Recurrence::whereKey($primeira->recurrence_id)->update(['card_id' => $card->id]);
+    compras($eliel, $card, '2026-09', 2);
+    compras($ana, $card, '2026-09', 1);
+
+    $r = cleaner()->deleteCards($eliel, true);
+
+    expect($r['cards'])->toBe(1)->and($r['purchases'])->toBe(14)->and(Card::count())->toBe(0)
+        ->and(Entry::where('owner_id', $eliel->id)->count())->toBe(0)
+        ->and(Entry::where('owner_id', $ana->id)->count())->toBe(1);  // a do parceiro virou lançamento sem cartão
+
+    app(OpenMonthService::class)->openRange($eliel->couple_id, CarbonImmutable::parse('2026-09-01'), 12);
+    expect(Entry::where('owner_id', $eliel->id)->count())->toBe(0); // a série parou
+});

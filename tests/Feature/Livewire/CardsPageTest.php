@@ -3,6 +3,7 @@
 use App\Livewire\Cards\CardsPage;
 use App\Models\Card;
 use App\Models\CardInvoice;
+use App\Models\Entry;
 use App\Services\EntryService;
 use Livewire\Livewire;
 
@@ -53,4 +54,61 @@ it('o par também edita cartões (cadastro compartilhado)', function () {
     Livewire::actingAs($ana)->test(CardsPage::class)->call('edit', $card->id)->set('name', 'Novo nome')->call('addCard');
 
     expect($card->fresh()->name)->toBe('Novo nome');
+});
+
+it('Limpeza em massa: aparece embaixo; "Excluir todas as faturas" mostra o resumo por cartão, exclui e desfaz', function () {
+    [$eliel] = makeCouple();
+    $a = makeCard($eliel, 'Nubank');
+    $b = makeCard($eliel, 'Ourocard');
+    makeEntry($eliel, ['card_id' => $a->id, 'name' => 'A', 'amount_cents' => 1000]);
+    makeEntry($eliel, ['card_id' => $b->id, 'name' => 'B', 'amount_cents' => 2000]);
+
+    $tela = Livewire::actingAs($eliel)->test(CardsPage::class)->set('month', '2026-09')->assertSeeHtml('data-testid="bulk"')
+        ->call('openCleanAll')->assertSeeHtml('data-testid="clean-all-dialog"')->assertSeeHtml('data-testid="clean-all-count">2<')->assertSee('Nubank')->assertSee('Ourocard');
+
+    $tela->call('cleanAll')->assertSee('2 compras excluídas de todos os cartões (R$ 30,00)')->assertSeeHtml('data-testid="clean-undo"');
+    expect(Entry::count())->toBe(0);
+
+    $tela->call('undoClean')->assertSee('2 compras restauradas');
+    expect(Entry::count())->toBe(2);
+});
+
+it('"todos os meses" liga o parar parceladas; sem cartões a seção de limpeza não aparece', function () {
+    [$eliel] = makeCouple();
+    Livewire::actingAs($eliel)->test(CardsPage::class)->assertDontSeeHtml('data-testid="bulk"');
+
+    makeCard($eliel, 'Nubank');
+    Livewire::actingAs($eliel)->test(CardsPage::class)->call('openCleanAll')->assertSet('stopSeries', false)->set('cleanScope', 'all')->assertSet('stopSeries', true);
+});
+
+it('Excluir todos os cartões exige digitar EXCLUIR e pergunta o que fazer com as compras', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'A']);
+
+    $tela = Livewire::actingAs($eliel)->test(CardsPage::class)->call('openDeleteCards')->assertSeeHtml('data-testid="delete-cards-dialog"')
+        ->assertSee('Manter as compras como lançamentos sem cartão')->assertSee('Apagar as compras também')->assertSee('não dá para desfazer');
+
+    $tela->set('confirmText', 'sim')->call('deleteAllCards')->assertSeeHtml('data-testid="confirm-error"');
+    expect(Card::count())->toBe(1);
+
+    $tela->set('deleteMode', 'purge')->set('confirmText', 'excluir')->call('deleteAllCards')->assertSee('1 cartões excluídos e 1 compras apagadas');
+    expect(Card::count())->toBe(0)->and(Entry::count())->toBe(0);
+});
+
+it('Excluir todos os cartões mantendo as compras deixa os lançamentos sem cartão', function () {
+    [$eliel] = makeCouple();
+    $card = makeCard($eliel, 'Nubank');
+    makeEntry($eliel, ['card_id' => $card->id, 'name' => 'A']);
+
+    Livewire::actingAs($eliel)->test(CardsPage::class)->call('openDeleteCards')->set('confirmText', 'EXCLUIR')->call('deleteAllCards')->assertSee('As compras ficaram como lançamentos sem cartão');
+
+    expect(Card::count())->toBe(0)->and(Entry::count())->toBe(1)->and(Entry::first()->card_id)->toBeNull();
+});
+
+it('na visão "Par" a limpeza em massa não aparece', function () {
+    [$eliel] = makeCouple();
+    makeCard($eliel, 'Nubank');
+
+    Livewire::actingAs($eliel)->test(CardsPage::class)->call('setView', 'par')->assertDontSeeHtml('data-testid="bulk"');
 });

@@ -146,6 +146,7 @@ class CardDetail extends Component
                 return $l->filter(fn (Entry $e) => str_contains(mb_strtolower($e->name.' '.($e->category?->name ?? '')), $term));
             })->values(),
             'clean' => $this->showClean ? app(CardPurchaseCleaner::class)->preview(auth()->user(), $this->card, $this->cleanScope === 'all' ? null : $this->monthDate()) : null,
+            'cardPurchases' => Entry::where('card_id', $this->card->id)->count(),
             'allCount' => ($mine['lines'] ?? collect())->count(),
             'total' => $mine['total'] ?? 0,
             'paid' => $mine['paid'] ?? false,

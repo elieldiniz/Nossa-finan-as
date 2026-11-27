@@ -73,7 +73,7 @@
         @if ($view !== 'par')
             <button type="button" wire:click="openClean" class="nf-chip !text-neg" data-testid="open-clean">Excluir compras…</button>
         @endif
-        <button type="button" wire:click="removeCard" wire:confirm="Excluir este cartão?" class="nf-chip !text-neg" data-testid="remove-card">Excluir cartão</button>
+        <button type="button" wire:click="removeCard" wire:confirm="Excluir este cartão?@if ($cardPurchases > 0) As {{ $cardPurchases }} compras dele ficam como lançamentos sem cartão (para apagá-las também, use “Excluir compras…” antes).@endif" class="nf-chip !text-neg" data-testid="remove-card">Excluir cartão</button>
     </div>
 
     @if ($showClean && $clean)
