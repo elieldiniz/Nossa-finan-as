@@ -3,7 +3,7 @@
     <x-month-header :month="$this->monthDate()" :view="$view" :title="'Olá, '.auth()->user()->firstName()" />
 
     <div class="lg:grid lg:grid-cols-3 lg:gap-5">
-        <div class="lg:col-span-2"><x-closing-banner :closing="$summary['closing']" /></div>
+        <div class="lg:col-span-2"><x-closing-banner :closing="$summary['closing']" :pending-income="$summary['pending_income']" /></div>
         <section class="nf-card mt-4 p-5 lg:mt-0" aria-label="Gastos do mês">
             <div class="flex items-center justify-between"><h2 class="text-base font-extrabold">Gastos do mês</h2><a href="{{ route('charts') }}" wire:navigate class="text-sm font-bold text-brand">Ver gráficos ›</a></div>
             <p class="mt-1 text-3xl font-extrabold" data-testid="spent">{{ Money::format($summary['closing']->expense) }}</p>

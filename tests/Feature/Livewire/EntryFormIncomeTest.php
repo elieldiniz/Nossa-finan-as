@@ -1,6 +1,9 @@
 <?php
 
+use App\Livewire\Entry\EditEntry;
 use App\Livewire\Entry\EntryForm;
+use App\Livewire\Home\HomePage;
+use App\Livewire\Statement\StatementPage;
 use App\Models\Category;
 use App\Models\Entry;
 use App\Services\CategoryService;
@@ -150,4 +153,39 @@ it('recorrente "Começa em" também aceita mês futuro', function () {
         ->set('month', '2027-02')->set('repeat', 'monthly')->call('save')->assertHasNoErrors();
 
     expect(Entry::first()->month->format('Y-m'))->toBe('2027-02');
+});
+
+it('o formulário diz para qual mês o lançamento vai (para o 13º não cair no mês errado)', function () {
+    [$eliel] = makeCouple();
+    $this->travelTo(CarbonImmutable::parse('2026-11-27 10:00'));
+
+    $tela = Livewire::actingAs($eliel)->test(EntryForm::class)->set('kind', 'entrada')->assertSeeHtml('data-testid="month-target"')->assertSee('Este lançamento vai para novembro de 2026');
+    $tela->set('month', '2026-12')->assertSee('Este lançamento vai para dezembro de 2026')->assertSee('só soma nas Entradas daquele mês');
+    $tela->set('month', 'abc')->assertDontSeeHtml('data-testid="month-target"');
+});
+
+it('entradas ainda não recebidas aparecem como "a receber" no Extrato e no Início, sem mudar o total', function () {
+    [$eliel] = makeCouple();
+    $this->actingAs($eliel);
+    $sal = categoryOf($eliel->couple_id, 'Salário')->id;
+    makeEntry($eliel, ['kind' => 'entrada', 'name' => 'Salário', 'amount_cents' => 400000, 'paid' => true, 'category_id' => $sal, 'month' => '2026-11-01']);
+    makeEntry($eliel, ['kind' => 'entrada', 'name' => '13º', 'amount_cents' => 500000, 'paid' => false, 'category_id' => $sal, 'month' => '2026-11-01']);
+
+    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-11')
+        ->assertSee('+R$ 9.000,00')->assertSeeHtml('data-testid="pending-income"')->assertSee('R$ 5.000,00 a receber');
+    Livewire::actingAs($eliel)->test(HomePage::class)->set('month', '2026-11')->assertSeeHtml('data-testid="income"')->assertSee('R$ 5.000,00 a receber');
+
+    // mover o 13º para dezembro (editando o mês) tira do total de novembro e coloca em dezembro
+    $decimo = Entry::where('name', '13º')->first();
+    Livewire::actingAs($eliel)->test(EditEntry::class, ['entry' => $decimo])->set('month', '2026-12')->call('save')->assertHasNoErrors();
+
+    $nov = Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-11')->assertSee('+R$ 4.000,00')->assertDontSeeHtml('data-testid="pending-income"');
+    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-12')->assertSee('+R$ 5.000,00')->assertSee('R$ 5.000,00 a receber');
+});
+
+it('sem entradas a receber o "a receber" não aparece', function () {
+    [$eliel] = makeCouple();
+    makeEntry($eliel, ['kind' => 'entrada', 'name' => 'Salário', 'amount_cents' => 400000, 'paid' => true, 'category_id' => categoryOf($eliel->couple_id, 'Salário')->id]);
+
+    Livewire::actingAs($eliel)->test(StatementPage::class)->set('month', '2026-09')->assertDontSeeHtml('data-testid="pending-income"');
 });

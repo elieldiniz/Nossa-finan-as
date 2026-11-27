@@ -3,7 +3,7 @@
     <x-month-header :month="$this->monthDate()" :view="$view" title="Extrato" />
 
     <section class="nf-card grid grid-cols-3 gap-3 p-4 text-center" aria-label="Resumo do mês">
-        <div><div class="text-xs font-semibold text-muted">Entradas</div><div class="text-sm font-extrabold text-pos">{{ Money::signed($summary['closing']->income) }}</div></div>
+        <div><div class="text-xs font-semibold text-muted">Entradas</div><div class="text-sm font-extrabold text-pos">{{ Money::signed($summary['closing']->income) }}</div>@if ($summary['pending_income'] > 0)<div class="text-[11px] font-bold text-[#8A5A00]" data-testid="pending-income">{{ Money::format($summary['pending_income']) }} a receber</div>@endif</div>
         <div><div class="text-xs font-semibold text-muted">Saídas</div><div class="text-sm font-extrabold">{{ $summary['closing']->expense > 0 ? '−' : '' }}{{ Money::format($summary['closing']->expense) }}</div></div>
         <div><div class="text-xs font-semibold text-muted">Saldo</div><div class="text-sm font-extrabold {{ $summary['closing']->closing < 0 ? 'text-neg' : 'text-pos' }}" data-testid="closing-value">{{ Money::signed($summary['closing']->closing) }}</div></div>
     </section>

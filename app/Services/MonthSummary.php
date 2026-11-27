@@ -78,6 +78,8 @@ class MonthSummary
             'people' => $people,
             'vale' => $vale,
             'closing' => $closing,
+            // entradas do mês que ainda não foram recebidas: já somam nas Entradas, e aparecem como "a receber"
+            'pending_income' => (int) $plain->where('kind', Entry::ENTRADA)->where('paid', false)->sum('amount_cents'),
         ];
     }
 

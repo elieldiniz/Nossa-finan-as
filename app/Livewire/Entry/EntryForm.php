@@ -126,6 +126,16 @@ class EntryForm extends Component
             : null;
     }
 
+    /** "dezembro de 2026": para onde o lançamento vai (null enquanto o mês digitado for inválido). */
+    public function monthTarget(): ?string
+    {
+        if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->month) !== 1) {
+            return null;
+        }
+
+        return CarbonImmutable::createFromFormat('!Y-m', $this->month)->translatedFormat('F \d\e Y');
+    }
+
     public function startsInThePast(): bool
     {
         return $this->monthDate()->lessThan(CarbonImmutable::now()->startOfMonth());

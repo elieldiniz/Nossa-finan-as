@@ -37,7 +37,8 @@
     <div>
         <label for="month" class="nf-label">{{ ['entrada' => 'Mês em que recebe', 'aporte' => 'Mês do investimento', 'saida' => 'Mês do gasto'][$kind] }}</label>
         <input id="month" type="month" wire:model.live="month" class="nf-input" data-testid="month-input" />
-        <p class="mt-1 text-xs text-muted">Pode ser um mês futuro, como o 13º em dezembro: ele já entra na previsão daquele mês.</p>
+        @if ($this->monthTarget())<p class="mt-1 text-sm font-bold text-brand" data-testid="month-target">Este lançamento vai para {{ $this->monthTarget() }}.</p>@endif
+        <p class="text-xs text-muted">Pode ser um mês futuro, como o 13º em dezembro: ele só soma nas Entradas daquele mês.</p>
         @error('month') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror
     </div>
     @endif
