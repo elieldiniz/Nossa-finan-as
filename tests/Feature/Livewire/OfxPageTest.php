@@ -1,5 +1,7 @@
 <?php
 
+use App\Import\InvalidImportFile;
+use App\Import\OurocardPdfParser;
 use App\Livewire\Cards\CardDetail;
 use App\Livewire\Import\OfxPage;
 use App\Livewire\Statement\StatementPage;
@@ -132,4 +134,83 @@ it('com "Nubank" e "Nubank Ana" cadastrados, sugere o de nome igual e dá para t
     $nubank = makeCard($eliel, 'Nubank');
 
     Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoOfx())->assertSet('cardId', $nubank->id);
+});
+
+function arquivoPdf(): UploadedFile
+{
+    return UploadedFile::fake()->createWithContent('fatura.pdf', '%PDF-1.4 conteudo de teste');
+}
+
+function faturaFalsa(): array
+{
+    $texto = file_get_contents(__DIR__.'/../../Fixtures/ourocard_texto.txt');
+
+    return (new OurocardPdfParser)->parseText($texto);
+}
+
+it('PDF do Ourocard: mostra vencimento, limite, confere o total e traz o dia de vencimento e o mês da fatura', function () {
+    [$eliel] = makeCouple();
+    $this->mock(OurocardPdfParser::class, fn ($m) => $m->shouldReceive('parse')->andReturn(faturaFalsa()));
+    $ouro = makeCard($eliel, 'Ourocard Ana');
+
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoPdf())
+        ->assertSet('month', '2026-11')->assertSet('cardId', $ouro->id)->assertSet('dueDay', 6)->assertSet('closingDay', 25)->assertSet('limitCents', 500000)
+        ->assertSeeHtml('data-testid="pdf-info"')->assertSee('Vence em 06/12/2026')->assertSee('limite R$ 5.000,00')
+        ->assertSeeHtml('data-testid="pdf-check"')->assertSee('✓ Confere')->assertSeeHtml('data-testid="ofx-total">R$ 400,00<');
+});
+
+it('PDF: importa as compras, parcelas, data de cada compra e preenche vence/fecha/limite do cartão', function () {
+    [$eliel] = makeCouple();
+    $this->mock(OurocardPdfParser::class, fn ($m) => $m->shouldReceive('parse')->andReturn(faturaFalsa()));
+    $ouro = makeCard($eliel, 'Ourocard');
+
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoPdf())->call('confirm')->assertHasNoErrors()->assertSee('Importado: 6 compras em Ourocard');
+
+    $card = $ouro->fresh();
+    expect($card->due_day)->toBe(6)->and($card->closing_day)->toBe(25)->and($card->limit_cents)->toBe(500000)
+        ->and(Entry::where('card_id', $ouro->id)->where('month', '2026-11-01')->count())->toBe(6)
+        ->and(Entry::where('card_id', $ouro->id)->sum('amount_cents'))->toBe(40000)
+        ->and(Entry::where('name', 'GELADEIRA')->first()->installment_label)->toBe('2/5')
+        ->and(Entry::where('name', 'GELADEIRA')->first()->purchased_on->toDateString())->toBe('2026-09-07')
+        ->and(Entry::where('name', 'CLINICA SAUDE · cartão 2222')->first()->category->name)->toBe('Saúde'); // categoria do banco
+});
+
+it('PDF: compras do cartão adicional levam a marca no nome e dá para desmarcar o titular inteiro', function () {
+    [$eliel] = makeCouple();
+    $this->mock(OurocardPdfParser::class, fn ($m) => $m->shouldReceive('parse')->andReturn(faturaFalsa()));
+    makeCard($eliel, 'Ourocard');
+
+    $tela = Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoPdf())->assertSeeHtml('data-testid="holders"')->assertSee('PADARIA · cartão 2222')
+        ->assertSeeHtml('data-testid="ofx-count">6 compras');
+
+    $tela->set('holderInclude.2222', false)->assertSeeHtml('data-testid="ofx-count">3 compras')->assertSeeHtml('data-testid="ofx-total">R$ 200,00<');
+    $tela->call('confirm');
+
+    expect(Entry::where('name', 'like', '% · cartão 2222')->count())->toBe(0)->and(Entry::count())->toBe(3);
+});
+
+it('PDF: importar o mesmo arquivo de novo não duplica', function () {
+    [$eliel] = makeCouple();
+    $this->mock(OurocardPdfParser::class, fn ($m) => $m->shouldReceive('parse')->andReturn(faturaFalsa()));
+    makeCard($eliel, 'Ourocard');
+
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoPdf())->call('confirm');
+    expect(Entry::count())->toBe(6);
+
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoPdf())->assertSee('já importada')->assertSeeHtml('data-testid="ofx-count">0 compras');
+    expect(Entry::count())->toBe(6);
+});
+
+it('PDF protegido por senha ou que não é fatura mostra o erro e não grava', function () {
+    [$eliel] = makeCouple();
+    $this->mock(OurocardPdfParser::class, fn ($m) => $m->shouldReceive('parse')->andThrow(new InvalidImportFile('Esse PDF está protegido por senha. Abra no leitor de PDF, salve uma cópia sem senha e envie de novo.')));
+
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', arquivoPdf())->assertSee('protegido por senha');
+    expect(Entry::count())->toBe(0);
+});
+
+it('um arquivo .txt é recusado: só .ofx ou .pdf', function () {
+    [$eliel] = makeCouple();
+
+    Livewire::actingAs($eliel)->test(OfxPage::class)->set('file', UploadedFile::fake()->createWithContent('x.txt', 'nada'))->assertSee('.ofx ou a fatura em .pdf');
 });

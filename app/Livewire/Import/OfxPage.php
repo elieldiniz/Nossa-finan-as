@@ -5,6 +5,7 @@ namespace App\Livewire\Import;
 use App\Import\InvalidImportFile;
 use App\Import\OfxCategorizer;
 use App\Import\OfxParser;
+use App\Import\OurocardPdfParser;
 use App\Models\Card;
 use App\Models\Category;
 use App\Models\Entry;
@@ -34,6 +35,14 @@ class OfxPage extends Component
     /** "Vence dia" do cartão: com ele, a fatura aparece em Contas a vencer. */
     public ?int $dueDay = null;
 
+    /** Só no PDF: fechamento e limite do cartão (gravam no cartão se ele ainda não tiver). */
+    public ?int $closingDay = null;
+
+    public ?int $limitCents = null;
+
+    /** Só no PDF: incluir as compras de cada titular (cartão principal e adicionais). @var array<string, bool> */
+    public array $holderInclude = [];
+
     public string $month = '';
 
     public ?int $ownerId = null;
@@ -55,7 +64,7 @@ class OfxPage extends Component
         $this->month = CarbonImmutable::now()->format('Y-m');
     }
 
-    public function updatedFile(OfxParser $parser, OfxImportService $service): void
+    public function updatedFile(OfxParser $parser, OurocardPdfParser $pdfParser, OfxImportService $service): void
     {
         $this->error = $this->done = null;
         $this->statement = null;
@@ -65,10 +74,11 @@ class OfxPage extends Component
             return;
         }
 
-        $this->validate(['file' => ['file', 'max:2048', 'extensions:ofx']], ['file.extensions' => 'O arquivo precisa ser um extrato .ofx.', 'file.max' => 'O arquivo é grande demais (máximo 2 MB).']);
+        $this->validate(['file' => ['file', 'max:5120', 'extensions:ofx,pdf']], ['file.extensions' => 'O arquivo precisa ser um extrato .ofx ou a fatura em .pdf.', 'file.max' => 'O arquivo é grande demais (máximo 5 MB).']);
+        $isPdf = strtolower((string) $this->file->getClientOriginalExtension()) === 'pdf';
 
         try {
-            $statement = $parser->parse((string) $this->file->get());
+            $statement = $isPdf ? $pdfParser->parse((string) $this->file->get()) : $parser->parse((string) $this->file->get());
         } catch (InvalidImportFile $e) {
             $this->error = $e->getMessage();
 
@@ -76,6 +86,12 @@ class OfxPage extends Component
         }
 
         $this->statement = $statement;
+        $this->holderInclude = [];
+        $this->closingDay = isset($statement['closing_date']) ? CarbonImmutable::parse($statement['closing_date'])->day : null;
+        $this->limitCents = $statement['limit'] ?? null;
+        foreach ($statement['holders'] ?? [] as $h) {
+            $this->holderInclude[(string) $h['card']] = true;
+        }
 
         // mês da fatura = mês em que o período termina (a fatura de novembro fecha em 30/11 e vence em dezembro)
         if ($statement['end']) {
@@ -83,6 +99,11 @@ class OfxPage extends Component
         }
 
         $this->guessCard($statement['bank']);
+
+        // o PDF traz o vencimento: já vem preenchido (senão o do cartão já cadastrado)
+        if (! empty($statement['due_date'])) {
+            $this->dueDay = CarbonImmutable::parse($statement['due_date'])->day;
+        }
 
         $categories = Category::forKind('saida')->get()->keyBy('name');
         $outros = Category::where('name', 'Outros')->value('id') ?? $categories->first()?->id;
@@ -96,8 +117,43 @@ class OfxPage extends Component
                 'credit' => $isCredit,
                 'duplicate' => $duplicate,
                 'include' => ! $isCredit && ! $duplicate,
-                'category_id' => $categories[OfxCategorizer::suggest($t['name'])]->id ?? $outros,
+                'category_id' => $categories[$this->suggestCategory($t)]->id ?? $outros,
             ];
+
+            // cartão adicional: a compra leva a marca do cartão no nome, para saber depois de quem foi
+            if (! empty($t['holder']) && ! empty($statement['account']) && $t['holder'] !== $statement['account']) {
+                $this->lines[$i]['name'] = $t['name'].' · cartão '.$t['holder'];
+            }
+        }
+    }
+
+    /** Categoria pelo nome; se não souber, pela categoria que o banco informa ("Hospitais" → Saúde). */
+    private function suggestCategory(array $t): string
+    {
+        $byName = OfxCategorizer::suggest($t['name']);
+
+        if ($byName !== 'Outros' || empty($t['heading'])) {
+            return $byName;
+        }
+
+        return match (mb_strtolower($t['heading'])) {
+            'hospitais', 'farmácias', 'farmacias', 'seguros' => 'Saúde',
+            'restaurantes', 'lazer', 'entretenimento', 'viagens', 'hotéis', 'hoteis' => 'Lazer',
+            'supermercados' => 'Mercado',
+            'combustíveis', 'combustiveis', 'transportes', 'postos de combustível' => 'Transporte',
+            'educação', 'educacao' => 'Educação',
+            'assinaturas' => 'Assinatura',
+            default => 'Outros',
+        };
+    }
+
+    /** Marcar/desmarcar todas as compras de um titular do PDF. */
+    public function updatedHolderInclude($value, $key): void
+    {
+        foreach ($this->lines as $i => $line) {
+            if (($line['holder'] ?? null) === (string) $key && ! $line['credit'] && ! $line['duplicate']) {
+                $this->lines[$i]['include'] = (bool) $value;
+            }
         }
     }
 
@@ -181,6 +237,13 @@ class OfxPage extends Component
                 $card->update(['due_day' => $this->dueDay]);
             }
 
+            // fechamento e limite que vieram no PDF: só preenchem o que o cartão ainda não tem
+            $fill = array_filter(['closing_day' => $card->closing_day ? null : $this->closingDay, 'limit_cents' => $card->limit_cents ? null : $this->limitCents]);
+            if ($fill !== []) {
+                Gate::authorize('update', $card);
+                $card->update($fill);
+            }
+
             $counts = $service->import(auth()->user(), $card, $this->monthDate(), $this->ownerId, $chosen->map(fn ($l) => [
                 'id' => $l['id'], 'name' => $l['name'], 'amount' => abs($l['amount']), 'installment' => $l['installment'], 'category_id' => (int) $l['category_id'], 'date' => $l['date'],
             ])->values()->all());
@@ -217,6 +280,7 @@ class OfxPage extends Component
     {
         $this->statement = null;
         $this->lines = [];
+        $this->holderInclude = [];
         $this->file = null;
         $this->error = null;
     }
@@ -237,6 +301,7 @@ class OfxPage extends Component
             'count' => $included->count(),
             'total' => (int) $included->sum(fn ($l) => abs($l['amount'])),
             'payments' => (int) collect($this->lines)->filter(fn ($l) => $l['credit'])->sum('amount'),
+            'purchasesTotal' => (int) collect($this->lines)->filter(fn ($l) => ! $l['credit'])->sum(fn ($l) => abs($l['amount'])),
         ]);
     }
 }

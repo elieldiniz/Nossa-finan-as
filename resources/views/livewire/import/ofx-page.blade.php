@@ -1,6 +1,6 @@
 @php use App\Support\Money; @endphp
 <div class="mx-auto flex max-w-3xl flex-col gap-4">
-    <header><h1 class="text-2xl font-extrabold">Importar fatura do cartão</h1><p class="text-sm text-muted">Use o arquivo <b>.ofx</b> que o banco (Nubank, por exemplo) oferece. Você confere as compras antes de gravar.</p></header>
+    <header><h1 class="text-2xl font-extrabold">Importar fatura do cartão</h1><p class="text-sm text-muted">Use o arquivo <b>.ofx</b> do banco (Nubank, por exemplo) ou a <b>fatura em .pdf</b> do Ourocard. Você confere as compras antes de gravar.</p></header>
 
     @if ($done) <p role="status" class="rounded-2xl bg-pos-soft px-4 py-3 text-sm font-bold text-pos" data-testid="done">{{ $done }} <a href="{{ route('statement', ['m' => $month]) }}" wire:navigate class="underline">Ver o Extrato</a></p> @endif
     @if ($error) <p role="alert" class="rounded-2xl bg-neg-soft px-4 py-3 text-sm font-bold text-[#8E2F20]" data-testid="form-error">{{ $error }}</p> @endif
@@ -10,16 +10,16 @@
         <section class="nf-card flex flex-col gap-4 p-5" aria-label="Escolher arquivo">
             <label for="ofx" class="flex cursor-pointer flex-col items-center gap-2 rounded-3xl border-2 border-dashed border-brand bg-brand-soft p-8 text-center">
                 <span class="flex size-14 items-center justify-center rounded-full bg-brand text-white"><x-nav.icon name="upload" class="size-7" /></span>
-                <span class="text-base font-extrabold">Escolher arquivo .ofx</span>
-                <span class="text-sm text-muted">{{ $file ? $file->getClientOriginalName() : 'Fatura ou extrato do cartão' }}</span>
-                <input id="ofx" type="file" wire:model="file" accept=".ofx" class="sr-only" />
+                <span class="text-base font-extrabold">Escolher arquivo .ofx ou .pdf</span>
+                <span class="text-sm text-muted">{{ $file ? $file->getClientOriginalName() : 'Extrato .ofx ou fatura .pdf do cartão' }}</span>
+                <input id="ofx" type="file" wire:model="file" accept=".ofx,.pdf" class="sr-only" />
             </label>
             <p class="text-xs text-muted">Compras parceladas (“Parcela 2/5”) entram como parceladas e continuam nos meses seguintes. Importar o mesmo arquivo duas vezes não duplica nada.</p>
             <a href="{{ route('import') }}" wire:navigate class="text-sm font-bold text-brand">Importar planilha “Orç - Mês” em vez disso ›</a>
         </section>
     @else
         <section class="nf-card flex flex-col gap-3 p-5" aria-label="Destino" data-testid="ofx-preview">
-            <p class="text-sm font-semibold text-muted">{{ $statement['bank'] }} · {{ \Carbon\Carbon::parse($statement['start'])->format('d/m') }} a {{ \Carbon\Carbon::parse($statement['end'])->format('d/m/Y') }} · {{ count($lines) }} transações</p>
+            <p class="text-sm font-semibold text-muted">{{ $statement['bank'] }} · @if (! empty($statement['start'])){{ \Carbon\Carbon::parse($statement['start'])->format('d/m') }} a @endif{{ \Carbon\Carbon::parse($statement['end'])->format('d/m/Y') }} · {{ count($lines) }} lançamentos</p>
             <div class="grid grid-cols-2 gap-3">
                 <div class="col-span-2">
                     <label for="card" class="nf-label">Cartão</label>
@@ -29,12 +29,31 @@
                 <div class="col-span-2">
                     <label for="due" class="nf-label">Vence dia</label>
                     <input id="due" type="number" min="1" max="31" wire:model="dueDay" placeholder="Ex.: 7" class="nf-input" data-testid="due-day" />
-                    <p class="mt-1 text-xs text-muted">O banco não manda o vencimento no arquivo. Com o dia (por exemplo 7), a fatura aparece em Contas a vencer.</p>
+                    <p class="mt-1 text-xs text-muted">{{ empty($statement['due_date']) ? 'O arquivo .ofx não traz o vencimento. Com o dia (por exemplo 7), a fatura aparece em Contas a vencer.' : 'Vem da fatura em PDF. Com o dia gravado no cartão, a fatura aparece em Contas a vencer.' }}</p>
                     @error('dueDay') <p class="mt-1 text-sm font-bold text-neg">{{ $message }}</p> @enderror
                 </div>
                 <div><label for="month" class="nf-label">Mês da fatura</label><input id="month" type="month" wire:model.live="month" class="nf-input" data-testid="month-input" /></div>
                 <div><label for="owner" class="nf-label">De quem</label><select id="owner" wire:model="ownerId" class="nf-input">@foreach ($members as $m)<option value="{{ $m->id }}">{{ $m->name }}</option>@endforeach</select></div>
             </div>
+            @if (! empty($statement['due_date']))
+                <p class="rounded-2xl bg-brand-soft px-3 py-2 text-sm font-semibold text-brand" data-testid="pdf-info">Vence em {{ \Carbon\Carbon::parse($statement['due_date'])->format('d/m/Y') }} · fechou em {{ \Carbon\Carbon::parse($statement['closing_date'])->format('d/m/Y') }}@if ($limitCents) · limite {{ Money::format($limitCents) }}@endif</p>
+            @endif
+            @if (! empty($statement['total']))
+                @php $confere = $purchasesTotal === $statement['total']; @endphp
+                <p class="rounded-2xl px-3 py-2 text-sm font-bold {{ $confere ? 'bg-pos-soft text-pos' : 'bg-[#FFF1D6] text-[#6B4600]' }}" data-testid="pdf-check">
+                    {{ $confere ? '✓ Confere: as compras lidas somam' : 'Atenção: as compras lidas somam' }} {{ Money::format($purchasesTotal) }} e a fatura diz {{ Money::format($statement['total']) }}.
+                </p>
+            @endif
+            @foreach ($statement['warnings'] ?? [] as $warning) <p class="rounded-2xl bg-[#FFF1D6] px-3 py-2 text-sm font-semibold text-[#6B4600]" data-testid="pdf-warning">{{ $warning }}</p> @endforeach
+            @if (count($holderInclude) > 1)
+                <div class="rounded-2xl bg-ground p-3" data-testid="holders">
+                    <p class="text-sm font-extrabold">Cartões da fatura</p>
+                    @foreach ($statement['holders'] as $h)
+                        <label class="mt-1 flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model.live="holderInclude.{{ $h['card'] }}" class="size-5 accent-brand" data-testid="holder-{{ $h['card'] }}" /> Cartão {{ $h['card'] }} · {{ $h['name'] }} <span class="ml-auto text-muted">{{ Money::format($h['subtotal']) }}</span></label>
+                    @endforeach
+                    <p class="mt-1 text-xs text-muted">Compras de cartões adicionais levam “· cartão NNNN” no nome.</p>
+                </div>
+            @endif
             <p class="text-xs text-muted">O mês da fatura é onde as compras aparecem no app: a fatura de novembro (compras até 30/11) vence em dezembro.</p>
         </section>
 

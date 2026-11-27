@@ -1,0 +1,26 @@
+RUA EXEMPLO 10, CENTRO, CIDADE, UF - 00000-000
+Olá, MARIA, esta é a sua
+fatura de
+MARIA EXEMPLO SILVA
+DEZEMBRO
+Valor
+R$ 400,00
+Vencimento
+06/12/2026
+Limite único
+R$ 5.000,00
+Final 1111
+Resumo da fatura
+Total	R$ 400,00
+Datas fatura
+Fatura fechada em
+Fechamento da próxima fatura
+Melhor data de compra
+25/11/2026
+23/12/2026
+23/12/2026
+Lançamentos nesta fatura
+MARIA EXEMPLO SILVA(Cartão 1111)
+DataDescrição	País	Valor
+ Pagina 002/003
+01- MARIA EXEMPLO SILVA       Cartao N. 1111 Pagamentos PGTO. PIX 0000 000  20005/11	31	R$ 100,00-Compras diversas MERCADO BOM          CIDADE28/10	BR	R$ 50,00 LOJA X *LOJA.COM      Sao Paulo02/11	BR	R$ 30,00 Compras/Pgto Contas Parc  Compras diversas GELADEIRA PARC 02/05 CIDADE07/09	BR	R$ 120,00 Subtotal	R$ 200,00 US$ 0,00 02- JOAO EXEMPLO SILVA           Cartao N. 2222 Compras diversas PADARIA              CIDADE04/11	BR	R$ 20,00 Hospitais CLINICA SAUDE          CIDADE23/11	BR	R$ 80,00 Compras/Pgto Contas Parc  Compras diversas CURSO PARC 01/02 CIDADE16/11	BR	R$ 100,00 Subtotal	R$ 200,00 US$ 0,00 Total	R$ 400,00 US$ 0,00 Parcelamentos Próxima Fatura GELADEIRA PARC 03/05 CIDADE07/09	R$ 120,00 Total parcelado para próxima fatura	R$ 120,00
