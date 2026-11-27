@@ -1,0 +1,42 @@
+openapi: 3.1.0
+info:
+  title: Assistente IA - download de relatório PDF (CT-03)
+  version: 1.0.0
+paths:
+  /assistente/relatorios/{id}:
+    get:
+      operationId: downloadAssistantReport
+      summary: Baixa o PDF gerado pelo assistente (RF-07). Somente o autor; link expira em 7 dias.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: PDF do relatório.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '302':
+          description: Visitante não autenticado redirecionado para o login.
+        '403':
+          description: Usuário autenticado que não é o autor.
+        '404':
+          description: Relatório inexistente ou expirado (mais de 7 dias).
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: laravel_session
