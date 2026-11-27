@@ -14,7 +14,7 @@
         @if ($tab === null)
             <div class="flex flex-1 justify-center">
                 <a href="{{ route('entry.create') }}" aria-label="Lançar" wire:navigate
-                   class="-mt-7 flex size-[58px] items-center justify-center rounded-full border-4 border-ground bg-brand text-white shadow-[0_10px_22px_rgba(20,97,79,.4)]">
+                   class="-mt-7 flex size-[58px] items-center justify-center rounded-full border-4 border-ground bg-brand text-white shadow-[0_10px_22px_color-mix(in_srgb,var(--color-brand)_40%,transparent)]">
                     <x-nav.icon name="plus" class="size-7" />
                 </a>
             </div>

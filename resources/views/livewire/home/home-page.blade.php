@@ -10,7 +10,7 @@
             @php $total = max($byCategory->sum(), 1); @endphp
             <div class="mt-3 flex h-3.5 overflow-hidden rounded-full bg-line" role="img" aria-label="Divisão dos gastos por categoria">
                 @foreach ($byCategory as $name => $cents)
-                    <div style="width: {{ intdiv($cents * 100, $total) }}%" class="{{ ['bg-brand', 'bg-[#5BB89A]', 'bg-[#E8A34B]', 'bg-neg'][$loop->index % 4] }}"></div>
+                    <div style="width: {{ intdiv($cents * 100, $total) }}%" class="{{ ['bg-brand', 'bg-brand-light', 'bg-[#E8A34B]', 'bg-neg'][$loop->index % 4] }}"></div>
                 @endforeach
             </div>
             <ul class="mt-2 text-sm">

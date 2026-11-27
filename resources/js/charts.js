@@ -2,8 +2,9 @@ import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
 
-const GREEN = '#14614F';
-const PALETTE = [GREEN, '#5BB89A', '#E8A34B', '#B9442F', '#27458F', '#6B4600', '#7A2415', '#0B5A44'];
+const css = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+const GREEN = css('--color-brand', '#14614F'); // cor da marca escolhida pela pessoa
+const PALETTE = [GREEN, css('--color-brand-light', '#5BB89A'), '#E8A34B', '#B9442F', '#27458F', '#6B4600', '#7A2415', '#0B5A44'];
 const brl = (cents) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const monthLabel = (ym) => new Date(`${ym}-01T12:00:00`).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
 

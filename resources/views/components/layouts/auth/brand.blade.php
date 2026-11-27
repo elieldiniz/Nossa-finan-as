@@ -6,7 +6,7 @@
     <body class="min-h-screen bg-ground font-sans text-ink antialiased">
         <div class="min-h-svh lg:grid lg:grid-cols-2">
             {{-- Faixa da marca: no celular fica no topo; no PC ocupa a metade da esquerda --}}
-            <header class="relative overflow-hidden rounded-b-[40px] bg-gradient-to-br from-brand-dark to-[#1B7A63] px-7 pb-12 pt-14 text-white lg:flex lg:min-h-svh lg:flex-col lg:justify-center lg:rounded-none lg:px-16">
+            <header class="relative overflow-hidden rounded-b-[40px] bg-gradient-to-br from-brand-dark to-brand-mid px-7 pb-12 pt-14 text-white lg:flex lg:min-h-svh lg:flex-col lg:justify-center lg:rounded-none lg:px-16">
                 <span aria-hidden="true" class="absolute -right-16 -top-10 size-56 rounded-full bg-lime/15"></span>
                 <span aria-hidden="true" class="absolute right-10 top-40 size-24 rounded-full bg-white/10"></span>
 

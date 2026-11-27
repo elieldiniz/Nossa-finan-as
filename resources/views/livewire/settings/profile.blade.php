@@ -112,6 +112,8 @@ new class extends Component {
             </div>
         </form>
 
+        <livewire:settings.theme-color />
+
         <livewire:settings.delete-user-form />
     </x-settings.layout>
 </section>

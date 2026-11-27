@@ -27,6 +27,8 @@
     --color-brand: #14614F;
     --color-brand-dark: #0E3B31;
     --color-brand-soft: #E9F5F0;
+    --color-brand-mid: #1B7A63;
+    --color-brand-light: #5BB89A;
     --color-ink: #12211C;
     --color-ground: #F3F6F4;
     --color-lime: #C8F169;
@@ -83,8 +85,8 @@ select:focus[data-flux-control] {
 /* Componentes do app */
 @layer components {
     .nf-card { @apply rounded-3xl bg-white shadow-[0_1px_2px_rgba(18,33,28,.04),0_8px_24px_rgba(18,33,28,.06)]; }
-    .nf-hero { @apply rounded-[28px] bg-gradient-to-br from-brand-dark to-[#1B7A63] text-white shadow-[0_14px_30px_rgba(14,59,49,.28)]; }
-    .nf-btn { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand px-6 text-base font-bold text-white shadow-[0_12px_24px_rgba(20,97,79,.3)] hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand; }
+    .nf-hero { @apply rounded-[28px] bg-gradient-to-br from-brand-dark to-brand-mid text-white shadow-[0_14px_30px_color-mix(in_srgb,var(--color-brand-dark)_28%,transparent)]; }
+    .nf-btn { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand px-6 text-base font-bold text-white shadow-[0_12px_24px_color-mix(in_srgb,var(--color-brand)_30%,transparent)] hover:bg-brand-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand; }
     .nf-btn-ghost { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-line bg-white px-5 text-sm font-bold text-ink hover:bg-ground; }
     .nf-input { @apply min-h-12 w-full rounded-2xl border border-zinc-300 bg-white px-4 text-base text-ink placeholder:text-muted focus:border-brand focus:outline-2 focus:outline-brand; }
     .nf-label { @apply mb-1 block text-xs font-bold text-muted; }
@@ -134,7 +136,7 @@ button:disabled {
     .nf-btn:not(:disabled):hover {
         background: var(--color-brand-dark);
         transform: translateY(-1px);
-        box-shadow: 0 16px 28px rgba(20, 97, 79, .38);
+        box-shadow: 0 16px 28px color-mix(in srgb, var(--color-brand) 38%, transparent);
     }
 
     .nf-btn:not(:disabled):active {
@@ -213,7 +215,7 @@ button:disabled {
 
 /* ===== Toque (celular): feedback imediato em tudo que dá para tocar ===== */
 html {
-    -webkit-tap-highlight-color: rgba(20, 97, 79, .12);
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--color-brand) 12%, transparent);
 }
 
 /* "afunda" um pouco enquanto o dedo está em cima */
@@ -254,7 +256,7 @@ a.nf-card:active {
 
 .nf-btn:not(:disabled):active {
     background: var(--color-brand-dark);
-    box-shadow: 0 6px 12px rgba(20, 97, 79, .3);
+    box-shadow: 0 6px 12px color-mix(in srgb, var(--color-brand) 30%, transparent);
 }
 
 /* campos: destaca a borda assim que toca */
@@ -269,7 +271,7 @@ a.nf-card:active {
 
 /* itens do menu lateral e do "Mais" */
 :where(aside a, .nf-card a.nf-row):active {
-    background: rgba(20, 97, 79, .1);
+    background: color-mix(in srgb, var(--color-brand) 10%, transparent);
 }
 
 /* quem prefere menos movimento: sem animação de encolher */
